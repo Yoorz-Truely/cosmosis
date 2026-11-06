@@ -93,7 +93,7 @@ The manifest pins the Sau version and Null format a project was written for, so 
 
 ## 5. Packages
 
-A package is a Shoon project of another kind, with a manifest, versions, and a licence report. `sau add <package>` adds it and updates the lockfile; handles from it are addressed as `@package:handle` (Null, section 7). Packages can come from a folder, a Git repository, or a registry (named later, as Crescend's Sampel-Tawn was). Blender's own asset libraries and the Essentials bundle convert into packages with `sau convert`. Blender add-ons stay Blender extensions and are not Shoon packages.
+A package is a Shoon project of another kind, with a manifest, versions, and a licence report. Packages come from folders, Git repositories and, later, the registry, **Genesis-Preim** (named by the user on November 6, 2026), used through `preim` commands as npm is beside Next.js: `preim add <package>` adds one and updates the lockfile, `preim search` and `preim publish` find and share them; handles from it are addressed as `@package:handle` (Null, section 7). Blender's own asset libraries and the Essentials bundle convert into packages with `sau convert`. Blender add-ons stay Blender extensions and are not Shoon packages.
 
 ## 6. Templates
 
@@ -116,7 +116,7 @@ A package is a Shoon project of another kind, with a manifest, versions, and a l
 | `sau test` | Run the checks |
 | `sau diff` | Compare two commits as text and as renders |
 | `sau lift` | Lift geometry or images to higher levels (Null, section 9) |
-| `sau add` / `sau remove` | Manage packages |
+| `preim add` / `preim remove` / `preim search` / `preim publish` | Manage packages (Genesis-Preim) |
 | `sau lsp` | Start the language server |
 
 ### Actions on the open project
@@ -129,4 +129,4 @@ Settled by the user on November 6, 2026:
 
 1. **The name** is Shoon.
 
-Proposed, waiting for the user: the folder layout above, the component rule for single-use data, and the registry name.
+Proposed, waiting for the user: the folder layout above and the component rule for single-use data. The registry's name is settled: Genesis-Preim.
