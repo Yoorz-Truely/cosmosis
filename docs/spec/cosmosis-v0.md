@@ -1,16 +1,16 @@
-# Shoon: Sau's project framework
+# Cosmósis: Sau's project framework
 
-Draft v0, November 6, 2026. Nothing is built yet. The name Shoon was chosen by the user on November 6, 2026. It lived in Sau as `docs/SHOON.md` until it moved to this repository on November 6, 2026, as Baarton's spec did. Where it fits in the product: Sau's `docs/ROADMAP.md`.
+Draft v0, November 6, 2026. Nothing is built yet. The name Shoon was chosen by the user on November 6, 2026, and changed to Cosmósis on November 7, 2026. It lived in Sau as `docs/SHOON.md` until it moved to this repository on November 6, 2026, as Baarton's spec did. Where it fits in the product: Sau's `docs/ROADMAP.md`.
 
-Shoon is the standard every Sau project follows: how a project folder is laid out, which language goes where, how projects declare and share packages, how a new project starts from a template, and which commands check, test, convert, render and deliver it. It plays the part Next.js plays for web apps, and Baarton for Crescend.
+Cosmósis is the standard every Sau project follows: how a project folder is laid out, which language goes where, how projects declare and share packages, how a new project starts from a template, and which commands check, test, convert, render and deliver it. It plays the part Next.js plays for web apps, and Baarton for Crescend.
 
 | Web development | Sau |
 | --- | --- |
 | JavaScript or TypeScript, the language | **Null**, the language (`Null/docs/spec/null-v0.md`) |
 | React, the runtime that compares and applies changes | **Sau**, the application, Blender's model and live reload |
-| Next.js: layout, conventions, packages, dev server, `create-next-app` | **Shoon**, this standard |
+| Next.js: layout, conventions, packages, dev server, `create-next-app` | **Cosmósis**, this standard |
 
-Shoon is deliberately thin: a short standard plus the commands that apply it, not a second language or a runtime.
+Cosmósis is deliberately thin: a short standard plus the commands that apply it, not a second language or a runtime.
 
 ## 1. Principles
 
@@ -24,8 +24,8 @@ Shoon is deliberately thin: a short standard plus the commands that apply it, no
 
 ```text
 Harbor at Dusk.sau/            a folder; macOS shows it as one document
-  shoon.noll                     the manifest: name, Sau and Null versions, dependencies
-  shoon.lock                   exact versions and hashes of every package used
+  cosmosis.noll                  the manifest: name, Sau and Null versions, dependencies
+  cosmosis.lock                exact versions and hashes of every package used
   project.noll                   project settings: units, colour management, scenes
   scenes/                      one file per scene: frame range, render settings, its collections
   objects/                     objects, with data, modifiers and constraints used only by them
@@ -48,7 +48,7 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
 
 ### Conventions
 
-- **The root** is the folder holding `shoon.noll`. A project of kind `project` also needs `project.noll`; every other file and folder is optional.
+- **The root** is the folder holding `cosmosis.noll`. A project of kind `project` also needs `project.noll`; every other file and folder is optional.
 - **Composition.** A scene file lists its collections and objects by handle; a collection lists its children. File names never decide order or membership, so reorganising is moving lines, never renaming files.
 - **Components.** Data used by only one object (its mesh, its modifiers, a material nobody else uses) is written in that object's file, as a component keeps its own state. Data used by two or more lives in its type folder. Sau moves a block between the two as sharing changes, as one write-back (proposed; NULL.md, section 20).
 - **One datablock, one place.** A handle is defined once in the project. Defining it twice is an error that names both files.
@@ -56,8 +56,8 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
 
 ### Version control
 
-- Every file except `.sau/`, `view.noll` and `renders/` is source and belongs in Git. Shoon writes a `.gitignore` saying so.
-- `media/` and `data/` are content-addressed, so they suit Git LFS; Shoon's `.gitattributes` template marks them for it.
+- Every file except `.sau/`, `view.noll` and `renders/` is source and belongs in Git. Cosmósis writes a `.gitignore` saying so.
+- `media/` and `data/` are content-addressed, so they suit Git LFS; Cosmósis's `.gitattributes` template marks them for it.
 - A merge driver for `.noll` files merges by handle rather than by line where Git's line merge fails.
 
 ## 3. Languages and where they go
@@ -74,7 +74,7 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
 ## 4. The manifest
 
 ```null
-// shoon.noll
+// cosmosis.noll
 package "harbor-at-dusk" {
   kind project              // project, material, node-group, model, rig, template, library
   version 0.1.0
@@ -83,7 +83,7 @@ package "harbor-at-dusk" {
   license "All rights reserved"
 
   dependencies {
-    shoon-materials "^1.2"  // a package from the registry
+    cosmosis-materials "^1.2"  // a package from the registry
     my-trees path="../Trees.sau"
   }
 }
@@ -93,7 +93,7 @@ The manifest pins the Sau version and Null format a project was written for, so 
 
 ## 5. Packages
 
-A package is a Shoon project of another kind, with a manifest, versions, and a licence report. Packages come from folders, Git repositories and, later, the registry, **Genesis-Preim** (named by the user on November 6, 2026), used through `preim` commands as npm is beside Next.js: `preim add <package>` adds one and updates the lockfile, `preim search` and `preim publish` find and share them; handles from it are addressed as `@package:handle` (Null, section 7). Blender's own asset libraries and the Essentials bundle convert into packages with `sau convert`. Blender add-ons stay Blender extensions and are not Shoon packages.
+A package is a Cosmósis project of another kind, with a manifest, versions, and a licence report. Packages come from folders, Git repositories and, later, the registry, **Genesis-Preim** (named by the user on November 6, 2026), used through `preim` commands as npm is beside Next.js: `preim add <package>` adds one and updates the lockfile, `preim search` and `preim publish` find and share them; handles from it are addressed as `@package:handle` (Null, section 7). Blender's own asset libraries and the Essentials bundle convert into packages with `sau convert`. Blender add-ons stay Blender extensions and are not Cosmósis packages.
 
 ## 6. Templates
 
@@ -127,6 +127,6 @@ Files describe; commands act. These reach the running Sau through the gateway, t
 
 Settled by the user on November 6, 2026:
 
-1. **The name** is Shoon.
+1. **The name** is Cosmósis (November 7, 2026; first Shoon). Where an accent cannot go (commands, crates, file and folder names, package names) it is written `cosmosis`; everywhere people read it, Cosmósis.
 
 Proposed, waiting for the user: the folder layout above and the component rule for single-use data. The registry's name is settled: Genesis-Preim.
