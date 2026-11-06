@@ -105,7 +105,8 @@ A package is a Shoon project of another kind, with a manifest, versions, and a l
 | --- | --- |
 | `sau new` | Start a project from a template |
 | `sau open <project>` | Open a project in Sau |
-| `sau dev <project>` | Open with live reload and the language server, or watch headless |
+| `sau dev <project>` | Like `npx convex dev`: watch the project, check every save, apply it to the open Sau or a headless one, and report changes and errors as they happen |
+| `sau watch <query>` | Subscribe to a live value (an object's world position, a polygon count, the diagnostics, a capture from a camera) and print it each time it changes |
 | `sau check` | Parse and check every file, with diagnostics |
 | `sau fmt` | Print files in canonical form |
 | `sau convert` | `.blend` to a project and back; asset libraries to packages |
