@@ -253,3 +253,71 @@ fn caches_outputs_and_nested_projects_are_skipped() {
             .any(|s| s.path == Path::new("objects/renders/fine.noll"))
     );
 }
+
+/// Editors save by writing a temporary file and renaming it over the original (task C-04).
+/// While another thread does that as fast as it can, 200 checks of the folder must never report
+/// the temporary file, which can vanish between the folder's listing and its reading, and every
+/// check must still read the object's file.
+#[test]
+fn a_file_renamed_over_another_while_walking_is_not_a_broken_link() {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+
+    let root = project("save-by-rename");
+    let stop = Arc::new(AtomicBool::new(false));
+    let saver = {
+        let (root, stop) = (root.clone(), Arc::clone(&stop));
+        std::thread::spawn(move || {
+            let mut n = 0u64;
+            while !stop.load(Ordering::Relaxed) {
+                // As an editor saves: a temporary file beside the original (one ending in .noll
+                // too, as some editors name them), then renamed over it.
+                for temp in ["objects/.cube.noll.tmp", "objects/cube.noll.saving.noll"] {
+                    let path = root.join(temp);
+                    fs::write(&path, format!("object @cube \"Cube\" {{}} // save {n}\n")).unwrap();
+                    fs::rename(&path, root.join("objects/cube.noll")).unwrap();
+                    n += 1;
+                }
+            }
+            n
+        })
+    };
+    let mut wrong = Vec::new();
+    for _ in 0..200 {
+        let l = layout::check(&root, Some(Kind::Project));
+        wrong.extend(l.diagnostics.iter().map(ToString::to_string));
+        assert!(
+            l.sources
+                .iter()
+                .any(|s| s.path == Path::new("objects/cube.noll")),
+            "the object's file was not read"
+        );
+    }
+    stop.store(true, Ordering::Relaxed);
+    let saves = saver.join().unwrap();
+    assert!(saves > 0);
+    assert!(
+        wrong.is_empty(),
+        "{} reports over 200 checks: {:?}",
+        wrong.len(),
+        &wrong[..wrong.len().min(3)]
+    );
+}
+
+/// A link to nothing is still an error, as it was before C-04.
+#[test]
+#[cfg(unix)]
+fn a_real_broken_link_is_still_reported() {
+    let root = project("broken-link");
+    std::os::unix::fs::symlink(
+        root.join("objects/missing.noll"),
+        root.join("objects/link.noll"),
+    )
+    .unwrap();
+    let found = found(&root, Some(Kind::Project));
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].contains("broken link") && found[0].contains("objects/link.noll"),
+        "{found:?}"
+    );
+}

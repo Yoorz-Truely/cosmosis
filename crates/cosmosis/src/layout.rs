@@ -150,6 +150,10 @@ fn entries(dir: &Path, rel: &Path, layout: &mut Layout) -> Vec<fs::DirEntry> {
             v.sort_by_key(fs::DirEntry::file_name);
             v
         }
+        // A folder gone since its parent was listed (task C-04).
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound && !rel.as_os_str().is_empty() => {
+            Vec::new()
+        }
         Err(e) => {
             layout.diagnostics.push(
                 Diagnostic::error("cosmosis-io", format!("cannot read the folder: {e}"))
@@ -168,10 +172,14 @@ fn walk(dir: &Path, rel: &Path, layout: &mut Layout) {
         let at_root = rel.as_os_str().is_empty();
         // Symbolic links are followed to files only, so a link can never make a loop.
         let Ok(meta) = fs::metadata(&path) else {
-            layout.diagnostics.push(
-                Diagnostic::error("cosmosis-io", "cannot read the file: it is a broken link")
-                    .in_file(&rel_path),
-            );
+            // Gone since the listing: an editor saved by renaming a temporary file over the
+            // original (task C-04). Only an entry that is still there is a broken link.
+            if fs::symlink_metadata(&path).is_ok() {
+                layout.diagnostics.push(
+                    Diagnostic::error("cosmosis-io", "cannot read the file: it is a broken link")
+                        .in_file(&rel_path),
+                );
+            }
             continue;
         };
         let is_link = entry.file_type().is_ok_and(|t| t.is_symlink());
@@ -210,6 +218,8 @@ fn walk(dir: &Path, rel: &Path, layout: &mut Layout) {
 fn source(path: &Path, rel: PathBuf, layout: &mut Layout) {
     let bytes = match fs::read(path) {
         Ok(b) => b,
+        // Gone since the listing, as a temporary file renamed over another is (task C-04).
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return,
         Err(e) => {
             layout.diagnostics.push(
                 Diagnostic::error("cosmosis-io", format!("cannot read the file: {e}")).in_file(rel),
@@ -258,10 +268,12 @@ fn content(dir: &Path, rel: &Path, layout: &mut Layout) {
             );
             continue;
         }
-        layout.content_files += 1;
         let hash = match sha256(&path) {
             Ok(h) => h,
+            // Gone since the listing (task C-04).
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
             Err(e) => {
+                layout.content_files += 1;
                 layout.diagnostics.push(
                     Diagnostic::error("cosmosis-io", format!("cannot read the file: {e}"))
                         .in_file(&rel_path),
@@ -269,6 +281,7 @@ fn content(dir: &Path, rel: &Path, layout: &mut Layout) {
                 continue;
             }
         };
+        layout.content_files += 1;
         let (stem, ext) = name.split_once('.').unwrap_or((&name, ""));
         let named = stem.len() == 64
             && stem
