@@ -52,6 +52,8 @@ Reviews of the Null worker's tasks are written in Null's report, `~/Projects/Nul
 
 - 1a-03, November 7, 2026: sent back (Null `ff7bd48`). A fuzz run with a larger input limit crashed on a false alarm in the shared invariants (the ban on Scowr's `vel=` example fires on a user's `level=`); the depth messages are pinned by no test; fuzzing never tried inputs over 583 bytes. The S59 spec edit matches S59.
 
+- 1a-05, second review, November 7, 2026: approved (Sau `1110fff` on `agent/sau-a`). Dynamic arrays checked both ways in the built Sau, collections added, no Blender prose; the fresh generation equals Null's file.
+
 ### 0-03, the agent environment (the lead's), November 7, 2026: sent back
 
 Checked against its "Done when" as its note amends it (the cache measurement moved to 0-05): the board, guides, recipes, hooks, guards, `check` and `verify` work in all three repositories.
