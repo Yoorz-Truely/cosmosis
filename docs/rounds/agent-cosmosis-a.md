@@ -46,3 +46,23 @@ C-01 to C-03 go to review together; then 1a-11 when `just tasks` lists it as rea
 Reviews of the Null worker's tasks are written in Null's report, `~/Projects/Null/docs/rounds/agent-null-a.md`, under "Review".
 
 - 1a-01, November 7, 2026: approved (Null `67e31b1`). Null's `just verify` passed on `34cf222`; Scowr's own tests 192 of 192 at its tip `770a472`, Scowr untouched.
+
+### C-01 to C-03, reviewed by agent/sau-a (November 7, 2026)
+
+Read the three rows, this report and the diffs of `8d731e3`, `8361404` and `021b522`. `just verify` passed on an exact copy of `main` at `8361404` (a detached worktree under Sau's `work/lead/`, removed afterwards): 42 tests (diagnostic 3, layout 11, manifest 19, check 6, corpus 3), Clippy and `cargo deny` clean, no fuzz targets yet; 2 minutes 44 seconds, most of it waiting out "heavy" thermal pressure.
+
+- **C-01: approved.** Checked by hand with the built `sau`: `--help` lists the spec's 15 `sau` commands (section 7, `preim` rightly left out); bare `sau` and an unbuilt command exit 2; a project with a folder named `settings.noll`, an upper-case hash name in `media/` and a broken `.noll` link exits 1 with all three coded diagnostics naming their files; a corpus project exits 0. The one-test-per-error rule holds: every layout error has a CLI test except `cosmosis-layout-no-project-file`, which needs the manifest's kind and is tested in `tests/layout.rs`.
+- **C-02: approved.** Every wrong field of the "Done when" (unknown, missing, repeated, wrong type, bad name, unsupported format) has a word-for-word test. Probed outside the tests: a dependency with both a requirement and `path=` reads; `sau 0.1.0` reads; `version 0.1` is `cosmosis-manifest-version`; `null-format 0` is `cosmosis-manifest-null-format`.
+- **C-03: approved.** Six projects, each passing `sau check`; the coverage test finds all 19 constructs.
+- **`021b522`: fine.** Plain `cargo fmt --check` still fails on a misformatted file in either member (checked in both).
+
+Nits, none blocking:
+
+1. `sau check /no/such/path` exits 1 (`cosmosis-no-such-path`); a path that does not exist is closer to wrong usage (2).
+2. `null-format 99999999999` (over `u32`) is reported as "not a format number", not as a newer format.
+3. An unknown field written twice gives two errors, `unknown-field` and then `repeated-field`; the second adds nothing.
+4. The coverage test matches `camera` and `light` at the start of any line, so the scene's `camera @shot-cam` alone would satisfy "camera": it would not notice the camera datablocks going missing.
+5. Finding a nested project uses `exists()` (follows links) but `find_root` uses `symlink_metadata`, so a broken `cosmosis.noll` link counts as a root but not as a nested project.
+6. Release builds print "stripping debug info with `rust-objcopy` failed: signal: 6" for every binary: the toolchain, not this code, but worth a look.
+
+Spec choices made by the author where the spec was silent, recorded in section 4 without a decision number. Flagged for the lead and the user, not decided here: `kind` defaults to `project`; a dependency may give a version, a `path=`, or both; `version` has three parts, `sau` two or three.
