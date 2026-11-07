@@ -98,9 +98,37 @@ Choices made where the spec was silent, recorded in the spec's section 4: only t
   - `ordinary_names_are_not_ignored`: `my.cube.noll`, `tmp.noll`, `café.noll` and others are still read.
 - `just check` and `just verify` pass.
 
+## 1d-04a: the manifest complete (`bea7dab`)
+
+**What was there.** C-02 and 1a-11 already read every field of the spec's section 4 (S37, S45, S59): the name, `kind`, `version`, `sau`, `null-format`, `license` and `dependencies`. They had word-for-word tests of the messages, mostly on hand-made trees. No change to the reader was needed.
+
+**What this adds** (`crates/cosmosis/tests/manifest_fields.rs`):
+
+- **`every_field_reads_and_every_wrong_value_is_its_error`**: 59 cases, each a whole manifest read from text through Null's parser, as `sau check` reads it. Each field's right forms come first, then each wrong form with the code it gives:
+  - the name: missing, a word, not kebab-case, a `name` field;
+  - the one package node: none, two, a stray node;
+  - `kind`: each of the seven kinds, the default, an unknown kind, a string, a list;
+  - `version`: three parts; two, four, a leading zero, a letter, a string;
+  - `sau`: two or three parts; one, four, a string;
+  - `null-format`: 1; missing, 0, 1.5, −1, 2 (newer), a string;
+  - `license`: a string; a word, a list;
+  - `dependencies`: a requirement, a path, both, none; neither, a bad requirement, a bare word, an unknown property, a repeat, a capitalised name, a block;
+  - any field: repeated, misspelt, without a value, with two values, with a block, and written as properties on the package's line.
+- **`every_field_has_a_case_and_every_error_is_met`**: every field in `manifest::FIELDS`, plus the name and `null-format`, has a case. Every `cosmosis-manifest-…` code in the reader's source is given by at least one case.
+- **`the_specs_fields_and_the_codes_are_the_same_list`**: the fields of section 4's example are exactly `manifest::FIELDS`, and the spec's reading rules name each one.
+
+**Found on the way.** Two errors are met differently from text than from hand-made trees:
+
+- A capitalised dependency name (`Trees`) is Null's own `null-name`: the parser finds it first, as it does for every node.
+- `dependencies trees`, with a word where the block goes, is `cosmosis-manifest-type`.
+
+The reader's `cosmosis-manifest-bad-name` is still met, by the package's name.
+
+**Measured.** All three tests pass. `just verify` passes. The first run of `just check` failed without saying why, with no change in between; the rerun on the same committed tree passed, and I did not find the cause.
+
 ## Next
 
-C-05 to review. Then 1d-04a, the manifest complete.
+C-05 and 1d-04a to review.
 
 ## Also done
 
