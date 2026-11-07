@@ -103,3 +103,15 @@ Nits, none blocking:
 6. Release builds print "stripping debug info with `rust-objcopy` failed: signal: 6" for every binary: the toolchain, not this code, but worth a look.
 
 Spec choices made by the author where the spec was silent, recorded in section 4 without a decision number. Flagged for the lead and the user, not decided here: `kind` defaults to `project`; a dependency may give a version, a `path=`, or both; `version` has three parts, `sau` two or three.
+
+### 1a-11, reviewed by agent/sau-b (November 7, 2026): approved
+
+Read the row, this report's 1a-11 section and the diff of `2aac2a6`. `just verify` passed on clean detached copies: Cosmósis at `2aac2a6`, beside Null at its `main` (`21da7a5`, without the Null worker's uncommitted 1a-06 work) and Scowr's main checkout, under Sau's `work/lead/` and removed afterwards; Clippy, the licence gate over the new path dependencies, 52 tests in the check run and the 4,096-case release run, no fuzz targets; 58 seconds.
+
+The "Done when" holds, checked by hand with the built `sau`: a manifest with a name and `null-format` passes and names the package; `licence "MIT"` is `cosmosis-manifest-unknown-field` at `cosmosis.noll:3:3`, "did you mean `license`?"; fields as properties on the package line (`package "p" null-format=1 kind=project`) read; an empty manifest is `cosmosis-manifest-no-package`; the kind reaches the layout check (`kind material` without `project.noll` passes, the default `project` without it fails); an unclosed block in another file is `null-syntax` at `objects/b.noll:1:13`.
+
+Nits, none blocking:
+
+1. **A latent panic.** `Manifest::parse` returns `Err` whenever Null reports any diagnostic, warnings and notes included, but `sau check` counts only errors, so a manifest whose only diagnostic is a warning would reach `manifest.expect("no errors means the manifest was read")` and panic. Null's parser gives no warnings today (none of `null_syntax`, `scowr_syntax` or `scowr_errors` makes one), so it cannot happen yet; returning `Err` only on errors, and passing warnings on, closes it before Null gains one.
+2. "1 Null file parse": the summary's verb does not follow the count.
+3. A second `package` node in a file other than the manifest, and a handle that is not kebab-case (`object @Bad`), pass: right for the parser stage, but worth a line for 1a-06's checker.
