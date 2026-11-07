@@ -6,11 +6,12 @@
 # Usage: tools/sau-crosscheck.sh <Null|Cosmosis>, the name of this repository.
 #
 # Sau's crates take Null and Cosmósis by path (`../../../../Null` from `sau/crates/sau_core`), and
-# Cargo reads such paths as written, without resolving links. So the check builds them from a
-# folder of links: Sau, this checkout under its own name, and the other repositories beside it.
-# Sau's own Cargo.lock is used as it is (`--locked`): if this repository gained a dependency Sau's
-# lock does not list, that fails too, and Sau's lock needs the line. The same file is in Null and
-# Cosmósis (`tools/`); Sau's check keeps the copies equal.
+# Cargo reads such paths as written, without resolving links. So the check builds them in a folder
+# holding Sau's committed `sau/` (its HEAD, not its working tree, which may be mid-merge or hold
+# someone's edits), with this checkout, under its own name, and the other repositories beside it
+# as links. Sau's own Cargo.lock is used as it is (`--locked`): if this repository gained a
+# dependency Sau's lock does not list, that fails too, and Sau's lock needs the line. The same
+# file is in Null and Cosmósis (`tools/`).
 set -euo pipefail
 name=${1:?usage: tools/sau-crosscheck.sh <Null|Cosmosis>}
 root=$(git rev-parse --show-toplevel)
@@ -21,16 +22,28 @@ if [ ! -f "$sau/sau/crates/Cargo.toml" ]; then
 fi
 work=$root/target/sau-crosscheck
 tree=$work/tree
-rm -rf "$tree"
-mkdir -p "$tree"
-ln -s "$(cd "$sau" && pwd -P)" "$tree/Sau"
-ln -s "$root" "$tree/$name"
+head=$(git -C "$sau" rev-parse HEAD)
+# Sau's committed files, extracted again only when its HEAD moves, so later runs build only what
+# changed. A real folder, not a link: the compiler resolves `include_str!` paths through links.
+if [ "$(cat "$tree/Sau/.sau-crosscheck-head" 2>/dev/null)" != "$head" ]; then
+  rm -rf "$tree/Sau"
+  mkdir -p "$tree/Sau"
+  paths=(sau)
+  if git -C "$sau" cat-file -e HEAD:source/blender/blenkernel/intern/unit.cc 2>/dev/null; then
+    paths+=(source/blender/blenkernel/intern/unit.cc) # read by sau_core's build (task 1c-01g)
+  fi
+  git -C "$sau" archive HEAD "${paths[@]}" | tar -x -C "$tree/Sau"
+  echo "$head" >"$tree/Sau/.sau-crosscheck-head"
+fi
 for other in Null Cosmosis Scowr; do
-  if [ "$other" != "$name" ] && [ -e "$root/../$other" ]; then
+  rm -f "$tree/$other"
+  if [ "$other" = "$name" ]; then
+    ln -s "$root" "$tree/$other"
+  elif [ -e "$root/../$other" ]; then
     ln -s "$(cd "$root/../$other" && pwd -P)" "$tree/$other"
   fi
 done
-echo "sau-crosscheck: Sau's crates ($(git -C "$sau" rev-parse --short HEAD)) against this $name"
+echo "sau-crosscheck: Sau's crates at ${head:0:8} (committed) against this $name"
 if ! RUSTC_WRAPPER="$root/tools/build-guard.py" CARGO_TARGET_DIR="$work/target" \
   cargo check --locked --workspace --all-targets --quiet \
   --manifest-path "$tree/Sau/sau/crates/Cargo.toml"; then

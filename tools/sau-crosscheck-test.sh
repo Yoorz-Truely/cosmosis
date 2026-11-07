@@ -10,8 +10,8 @@ root=$(git rev-parse --show-toplevel)
 case $name in
 # A function Sau's sau_core calls given one more parameter, which this repository's own
 # libraries still build with: only Sau's call breaks.
-Null) file=compiler/null_print/src/project.rs before='pub fn write_transform(' after='pub fn write_transform(_extra: (), ' ;;
-Cosmosis) file=crates/cosmosis/src/layout.rs before='pub fn find_root(' after='pub fn find_root(_extra: (), ' ;;
+Null) file=compiler/null_print/src/project.rs fn=write_transform ;;
+Cosmosis) file=crates/cosmosis/src/layout.rs fn=find_root ;;
 *) echo "usage: tools/sau-crosscheck-test.sh <Null|Cosmosis>" >&2 && exit 2 ;;
 esac
 scratch=$(mktemp -d)
@@ -25,15 +25,18 @@ for other in Sau Null Cosmosis Scowr; do
     ln -s "$(cd "$root/../$other" && pwd -P)" "$scratch/with/$other"
   fi
 done
-grep -q "$before" "$scratch/with/$name/$file"
-sed -i '' "s/$before/$after/" "$scratch/with/$name/$file"
+grep -q "pub fn $fn(" "$scratch/with/$name/$file"
+# The unchanged clone passes first, so the failure below is the change's.
+(cd "$scratch/with/$name" && tools/sau-crosscheck.sh "$name" >/dev/null)
+sed -i '' "s/pub fn $fn(/pub fn $fn(_extra: (), /" "$scratch/with/$name/$file"
 if out=$(cd "$scratch/with/$name" && tools/sau-crosscheck.sh "$name" 2>&1); then
   echo "sau-crosscheck-test: a changed signature passed:" >&2
   echo "$out" >&2
   exit 1
 fi
-# The compiler's error, in Sau's crate: this repository itself still builds.
-grep -q "^error\[E" <<<"$out" && grep -q -e "--> sau_core/src/" <<<"$out" || {
+# The compiler's error, in Sau's crate, on the call to the changed function: this repository
+# itself still builds.
+grep -q "^error\[E0061\]" <<<"$out" && grep -q -e "--> sau_core/src/" <<<"$out" && grep -q "$fn(" <<<"$out" || {
   echo "sau-crosscheck-test: failed without the compiler's error in Sau's sau_core:" >&2
   echo "$out" >&2
   exit 1
