@@ -143,9 +143,48 @@ Each has a test; the table of cases gains the empty path and the 20-digit format
 
 `just check` and `just verify` pass.
 
+## 1d-04b: the folder layout complete (S36, S66)
+
+**What changed.**
+
+- **A handle defined twice names both files.** Null's checker already marks where a handle was first defined, with a secondary label, but `schema_check` dropped it. Cosmósis's `Diagnostic` now has `related` places, printed as `  ::: file:line:column: first defined here` under the `-->` line. Any secondary place Null gives comes through the same way.
+- **`.sau/ids.noll` is read** (S61 (2), S66). It is the one source file in the cache folder `.sau/`, which stays skipped otherwise. A folder of that name is a `cosmosis-layout-not-a-file` error.
+- **Files whose forms are their own.** `settings.noll`, `view.noll` and `.sau/ids.noll` go through Null's parser for their syntax, but not through the schema check (`layout::holds_datablocks`), until their forms are specified (S66). Before this change, any content in `settings.noll` or `view.noll` was a `null-kind` error.
+- **The templates ship** in `templates/project/` as `gitignore` and `gitattributes`, named so they don't act on this repository. `cosmosis::templates` holds them:
+  - the `.gitignore` covers `.sau/*`, then `!.sau/ids.noll`, `/view.noll` and `/renders/`;
+  - the `.gitattributes` puts `/media/**` and `/data/**` in LFS.
+
+  Writing them into a new project is the new row 1d-04e.
+- **Spec section 2** has:
+  - the `.sau/ids.noll` line in the tree;
+  - "names both files, each with its line";
+  - "References need no imports";
+  - the files that hold no datablocks;
+  - the version-control rule with its one exception;
+  - the templates.
+
+  The CHANGELOG has the line.
+
+**Measured.** `crates/sau_cli/tests/layout_rules.rs` has one `sau check` test per rule and per error. Each error is asserted with its code, file, line and column:
+- a free layout (any folder, any name) that resolves across files;
+- a handle defined twice, at `objects/b.noll:2:8` with `objects/a.noll:1:8` named;
+- a reference found in another file, and one that resolves nowhere at `objects/cam.noll:2:15`;
+- the cache skipped, even a broken `.noll` in it, but not `ids.noll`;
+- `ids.noll`'s syntax error at its line, a non-UTF-8 byte at its line, and the folder case;
+- `settings.noll` and `view.noll` with arbitrary content clean, and their syntax errors at their lines;
+- the two templates, as Git reads them: `git check-ignore` in a fresh repository ignores exactly the four cache and output paths and keeps `.sau/ids.noll`, `settings.noll` and the sources; `git check-attr` gives `filter: lfs` for `media/` and `data/` only.
+
+Each of the layout's earlier rules and errors already had a test, now listed with these:
+- root names that must be files;
+- `project.noll`;
+- UTF-8;
+- the three content-folder errors;
+- nested projects, `renders/`, broken links;
+- C-05's ignored names.
+
 ## Next
 
-1d-04a back to review.
+1d-04b in review.
 
 ## Also done
 

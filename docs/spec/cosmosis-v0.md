@@ -42,7 +42,8 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
   view.noll                      where the project was left: workspaces, viewport, selection, open files
   settings.noll                  optional settings for this project only, over the user's own
   renders/                     rendered images and exports, by default
-  .sau/                        cache: the .blend snapshot, thumbnails, the ID map, undo history
+  .sau/                        cache: the .blend snapshot, thumbnails, undo history
+    ids.noll                     the map of handles to persistent IDs: source, kept in Git
   .gitignore
 ```
 
@@ -51,7 +52,9 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
 - **The root** is the folder holding `cosmosis.noll`. A project of kind `project` also needs `project.noll`; every other file and folder is optional.
 - **Composition.** A scene file lists its collections and objects by handle; a collection lists its children. File names never decide order or membership, so reorganising is moving lines, never renaming files.
 - **Components.** Data used by only one object (its mesh, its modifiers, a material nobody else uses) is written in that object's file, as a component keeps its own state. Data used by two or more lives in its type folder. Sau moves a block between the two as sharing changes, as one write-back (proposed; NULL.md, section 20).
-- **One datablock, one place.** A handle is defined once in the project. Defining it twice is an error that names both files.
+- **One datablock, one place.** A handle is defined once in the project for its kind. Defining it twice is an error that names both files, each with its line.
+- **References need no imports.** A handle defined in any file is found from every other (S36); a reference that names nothing is an error at its line.
+- **Files that hold no datablocks.** `cosmosis.noll` is the manifest (section 4). `settings.noll`, `view.noll` and `.sau/ids.noll` are Null text with forms of their own, not yet specified; until then they are checked only as UTF-8 text that Null's parser reads (Sau's decision S66). `.sau/ids.noll` is the one file in `.sau/` that is read (Sau's decisions S61 (2) and S66; its form is Sau's task 1b-01f).
 - **`view.noll`** holds interface state an AI may read and edit (which camera the viewport looks through, what is selected, which files are open) and is not in Git.
 
 ### Ignored names
@@ -68,8 +71,8 @@ So a project's own files are never named so. An entry that disappears between a 
 
 ### Version control
 
-- Every file except `.sau/`, `view.noll` and `renders/` is source and belongs in Git. Cosmósis writes a `.gitignore` saying so.
-- `media/` and `data/` are content-addressed, so they suit Git LFS; Cosmósis's `.gitattributes` template marks them for it.
+- Every file except `.sau/`, `view.noll` and `renders/` is source and belongs in Git; in `.sau/`, `ids.noll` is source too, since a project cloned without it would give its datablocks new persistent IDs (S66). Cosmósis ships a `.gitignore` saying so (`templates/project/gitignore`: `.sau/*`, `!.sau/ids.noll`, `/view.noll`, `/renders/`).
+- `media/` and `data/` are content-addressed, so they suit Git LFS; Cosmósis's `.gitattributes` template (`templates/project/gitattributes`) marks them for it. `sau new` writes both into a new project (task 1d-04e).
 - A merge driver for `.noll` files merges by handle rather than by line where Git's line merge fails.
 
 ## 3. Languages and where they go

@@ -62,6 +62,19 @@ pub struct Diagnostic {
     pub position: Option<LineCol>,
     /// How to fix it.
     pub help: Option<String>,
+    /// Other places it concerns, such as where a handle defined twice was first defined.
+    pub related: Vec<Related>,
+}
+
+/// A second place a diagnostic points at (task 1d-04b): a file, a position and what is there.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Related {
+    /// The file, relative to the project root.
+    pub file: PathBuf,
+    /// Where in it.
+    pub position: Option<LineCol>,
+    /// What is there, such as "first defined here".
+    pub message: String,
 }
 
 impl Diagnostic {
@@ -74,6 +87,7 @@ impl Diagnostic {
             file: None,
             position: None,
             help: None,
+            related: Vec::new(),
         }
     }
 
@@ -105,6 +119,22 @@ impl Diagnostic {
         self
     }
 
+    /// The same diagnostic with another place it concerns, at `span` in `source`.
+    pub fn with_related(
+        mut self,
+        file: impl Into<PathBuf>,
+        source: &[u8],
+        span: Span,
+        message: impl Into<String>,
+    ) -> Self {
+        self.related.push(Related {
+            file: file.into(),
+            position: Some(LineCol::of(source, span.start)),
+            message: message.into(),
+        });
+        self
+    }
+
     /// True for errors.
     pub fn is_error(&self) -> bool {
         self.severity == Severity::Error
@@ -125,6 +155,13 @@ impl fmt::Display for Diagnostic {
             if let Some(p) = self.position {
                 write!(f, ":{}:{}", p.line, p.column)?;
             }
+        }
+        for r in &self.related {
+            write!(f, "\n  ::: {}", r.file.display())?;
+            if let Some(p) = r.position {
+                write!(f, ":{}:{}", p.line, p.column)?;
+            }
+            write!(f, ": {}", r.message)?;
         }
         if let Some(help) = &self.help {
             write!(f, "\n  help: {help}")?;
@@ -194,6 +231,24 @@ mod tests {
         assert_eq!(
             d.to_string(),
             "error[cosmosis-x]: something is wrong\n  --> cosmosis.noll:2:2\n  help: fix it"
+        );
+    }
+
+    #[test]
+    fn renders_related_places() {
+        let d = Diagnostic::error("null-handle", "`@pier` is defined twice")
+            .in_file("objects/b.noll")
+            .at(b"object @pier", Span::new(7, 12))
+            .with_related(
+                "objects/a.noll",
+                b"\nobject @pier",
+                Span::new(8, 13),
+                "first defined here",
+            );
+        assert_eq!(
+            d.to_string(),
+            "error[null-handle]: `@pier` is defined twice\n  --> objects/b.noll:1:8\n  \
+             ::: objects/a.noll:2:8: first defined here"
         );
     }
 
