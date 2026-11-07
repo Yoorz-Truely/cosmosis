@@ -69,9 +69,38 @@ Choices made where the spec was silent, recorded in the spec's section 4: only t
 
 **Not this task's.** A temporary file named with `.noll` that is still there when it is read is read as a source. So, for a moment, it can define the same object twice. Editors' temporary names (`.x.swp`, `x~`, `.x.tmp`) do not end in `.noll`, so this only matters for an unusual editor.
 
+## C-05: a project ignores editors' and the system's files (`63d05e3`)
+
+**What was wrong.** Found by agent/null-a reviewing C-04. Under 300 checks and 139,056 saves by rename, 39 checks saw a temporary file ending in `.noll` (`cube.noll.saving.noll`), read before its rename, as a second definition of every datablock in it.
+
+**The fix.**
+
+- `layout::is_ignored(name)` skips, in the walk and in content folders, names:
+  - starting with `.` or `~`;
+  - ending in `~` or `#`;
+  - ending in `.tmp`, `.temp`, `.bak`, `.swp`, `.swo`, `.swx`, `.crswap` or `.vsctmp`, in any case;
+  - holding `.sb-` (macOS's safe save), `___jb_` (JetBrains) or `.noll.` (a copy of a Null file under another name);
+  - and macOS's `(A Document Being Saved By …)` folders.
+
+  It applies to files and folders alike, before anything is read.
+- The spec lists them, in section 2, "Ignored names".
+- VS Code's temporary suffix `.vsctmp` is my reading of its atomic save, not checked against its source. A web search did not confirm it ([VS Code issue 15111](https://github.com/Microsoft/vscode/issues/15111) discusses atomic saves without naming it). Since the name does not end in `.noll`, it would not be read in any case.
+
+**Measured.**
+
+- **`checks_during_saves_by_rename_report_nothing`** (cosmosis tests): 300 checks of a copy of `one-cube.sau`, layout and Null's checker both, while a thread saves `objects/cube.noll` by renaming over it from the review's three names: `cube.noll.saving.noll`, `.cube.noll.tmp` and `cube.noll~`.
+  - With the old rule, in which only a leading `.` is ignored, it fails in 3 runs of 3, with 52, 50 and 74 "defined twice" reports.
+  - With the new rule it passes, 3 runs of 3.
+- **`sau check` itself.** Run 300 times from the release build, while a script made 150,480 such saves in 20 s: 0 of 300 failed.
+- **Sau's live reload** (`sau_core::live`, approved 1a-13a, built against this Cosmósis). Under 116,538 saves in 20 s, each with a different location so that every reload publishes, it published 15,710 snapshots, none with a problem.
+- **The names.**
+  - `editors_and_system_files_are_ignored_even_ending_in_noll`: 16 such names, each defining `@cube` again, give no diagnostic, and only the project's own files are read.
+  - `ordinary_names_are_not_ignored`: `my.cube.noll`, `tmp.noll`, `café.noll` and others are still read.
+- `just check` and `just verify` pass.
+
 ## Next
 
-C-04 to review. Sau's `load_settled` retry (1a-13a) can go once C-04 is in.
+C-05 to review. Then 1d-04a, the manifest complete.
 
 ## Also done
 
