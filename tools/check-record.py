@@ -5,7 +5,8 @@
 ran on in `work/check/passed`, but only if the files did not change while it ran. The
 pre-commit hook calls `require`. It refuses a commit that touches code unless its staged tree
 has such a record. "The tree" is every file that is not ignored, as `git add -A` would stage it,
-tracked or not. Merges and documents-only commits need no record.
+tracked or not; documents may differ from it, code may not. Merges and documents-only commits
+need no record.
 
 Not code: `*.md` and everything under `docs/`; in Null and Cosmósis also images (`.png`, `.jpg`,
 `.jpeg`, `.gif`, `.svg`, `.webp`). Sau builds its branding images into the app, so there they
@@ -25,6 +26,7 @@ import tempfile
 import time
 
 KEEP = 200  # records kept; older ones are dropped
+CHECKED_AGAINST = 20  # the newest records a commit's code is compared with
 IMAGES = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
 
 
@@ -116,6 +118,12 @@ def require(cwd=None):
     trees = [x.split()[0] for x in log.read_text().splitlines() if x.strip()] if log.exists() else []
     if tree in trees:
         return 0
+    # The same code as a tree that passed, with only documents different (a report written
+    # after the check, or one left for its own commit): the code is what was checked.
+    for passed_tree in reversed(trees[-CHECKED_AGAINST:]):
+        diff = git("diff", "--name-only", "-z", passed_tree, tree, cwd=cwd, check=False).split("\0")
+        if not any(is_code(p, sau) for p in diff if p):
+            return 0
     print(
         "check-record: this commit changes code, and `just check` has not passed on the tree it "
         f"commits ({len(code)} code file(s), such as {code[0]}).",
@@ -125,7 +133,7 @@ def require(cwd=None):
         diff = [p for p in git("diff", "--name-only", trees[-1], tree, cwd=cwd).splitlines() if p]
         print("  It differs from the last tree that passed in: " + ", ".join(diff[:8]) + (" …" if len(diff) > 8 else ""), file=sys.stderr)
         print(
-            "  The check sees every file that is not ignored, staged or not: stage all of it, "
+            "  The check sees every file that is not ignored, staged or not: stage all its code, "
             "or move what is not part of the commit, then run `just check` again.",
             file=sys.stderr,
         )
@@ -203,6 +211,16 @@ def scenario(sau, me, expect):
         expect(f"{tag}: the same code after a check that saw no edit", commit("code"), True)
         doc.write_text("More notes.\n")
         expect(f"{tag}: documents alone, no check", commit("docs"), True)
+        src.write_text("fn a() { e() }\n")
+        check()
+        doc.write_text("Notes written after the check.\n")
+        expect(f"{tag}: checked code with documents changed after the check", commit("both"), True)
+        src.write_text("fn a() { f() }\n")
+        doc.write_text("A report kept for its own commit.\n")
+        check()
+        run("add", "src.rs")
+        r = subprocess.run(["git", "commit", "-q", "-m", "code"], cwd=repo, capture_output=True, text=True)
+        expect(f"{tag}: checked code, with a document left unstaged", r.returncode == 0, True)
         (repo / "logo.png").write_bytes(b"\x89PNG")
         expect(f"{tag}: an image alone, no check", commit("image"), not sau)
         # A merge with a conflict, resolved by hand: exempt, as lefthook skips merges.
