@@ -157,6 +157,26 @@ fn the_id_map_is_read_for_its_syntax_and_must_be_a_file() {
     fails_with(&bytes, &[("cosmosis-not-utf8", ".sau/ids.noll:2:3")]);
     let folder = project("ids-folder", &[(".sau/ids.noll/x", "")]);
     fails_with(&folder, &[("cosmosis-layout-not-a-file", ".sau/ids.noll")]);
+    // A link to nothing is an error, as a broken link anywhere else is.
+    let broken_link = project("ids-broken-link", &[]);
+    fs::create_dir_all(broken_link.join(".sau")).unwrap();
+    std::os::unix::fs::symlink("gone.noll", broken_link.join(".sau/ids.noll")).unwrap();
+    fails_with(&broken_link, &[("cosmosis-io", ".sau/ids.noll")]);
+}
+
+#[test]
+fn a_linked_cache_folder_is_not_followed_for_the_id_map() {
+    // `.sau` as a link to another folder, holding a broken map: not followed, so not read, and
+    // said in a note (no folder link is followed).
+    let elsewhere = project(
+        "cache-elsewhere",
+        &[(".sau/ids.noll", "ids {\n  map [\n}\n")],
+    );
+    let root = project("cache-link", &[]);
+    std::os::unix::fs::symlink(elsewhere.join(".sau"), root.join(".sau")).unwrap();
+    let (code, err) = check(&root);
+    assert_eq!(code, Some(0), "{err}");
+    assert!(err.contains("note[cosmosis-layout-link]: a link to a folder is not followed, so .sau/ids.noll is not read\n  --> .sau"), "{err}");
 }
 
 #[test]

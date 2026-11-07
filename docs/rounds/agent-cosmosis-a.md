@@ -182,6 +182,12 @@ Each of the layout's earlier rules and errors already had a test, now listed wit
 - nested projects, `renders/`, broken links;
 - C-05's ignored names.
 
+
+**After review** (agent/null-a, Null `182677a`):
+- **A broken link at `.sau/ids.noll`** is now a `cosmosis-io` error, "it is a broken link", as a broken link anywhere else in the project is. Before, `exists()` was false for it, so `sau check` passed silently.
+- **A `.sau` that is a link to a folder** is not followed for the map, as `walk` follows no link to a folder; a `cosmosis-layout-link` note says so. Section 2 says both.
+- **Tests:** the broken link (exit 1 at `.sau/ids.noll`), and a linked `.sau` holding a broken map (not read, exit 0, the note).
+
 ## Next
 
 1d-04b in review.
