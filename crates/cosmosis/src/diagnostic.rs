@@ -12,6 +12,8 @@ use crate::tree::Span;
 pub enum Severity {
     /// The project is wrong; `sau check` fails.
     Error,
+    /// Valid, but probably not what was meant; `sau check` still passes.
+    Warning,
     /// Information only; `sau check` still passes.
     Note,
 }
@@ -114,6 +116,7 @@ impl fmt::Display for Diagnostic {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let level = match self.severity {
             Severity::Error => "error",
+            Severity::Warning => "warning",
             Severity::Note => "note",
         };
         write!(f, "{level}[{}]: {}", self.code, self.message)?;

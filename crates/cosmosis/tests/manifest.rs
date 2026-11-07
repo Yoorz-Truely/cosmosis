@@ -599,3 +599,47 @@ fn names_and_requirements() {
         assert!(!is_requirement(bad), "{bad}");
     }
 }
+
+#[test]
+fn the_specs_manifest_example_parses_and_checks() {
+    // Section 4 of the spec, read with Null's parser (Sau task 1a-11), so the example stays
+    // valid as the code changes.
+    let spec = include_str!("../../../docs/spec/cosmosis-v0.md");
+    let section = &spec[spec.find("## 4. The manifest").unwrap()..];
+    let start = section.find("```null\n").unwrap() + "```null\n".len();
+    let text = &section[start..start + section[start..].find("```").unwrap()];
+    let m = Manifest::parse(text).unwrap_or_else(|ds| panic!("{ds:#?}"));
+    assert_eq!(m.name, "harbor-at-dusk");
+    assert_eq!((m.kind, m.null_format), (Kind::Project, 1));
+    assert_eq!(m.version.unwrap().to_string(), "0.1.0");
+    assert_eq!(m.sau.unwrap().to_string(), "0.1");
+    assert_eq!(m.license.as_deref(), Some("All rights reserved"));
+    let deps: Vec<_> = m
+        .dependencies
+        .iter()
+        .map(|d| (d.name.as_str(), d.requirement.as_deref(), d.path.as_deref()))
+        .collect();
+    assert_eq!(
+        deps,
+        [
+            ("cosmosis-materials", Some("^1.2"), None),
+            ("my-trees", None, Some("../Trees.sau"))
+        ]
+    );
+}
+
+#[test]
+fn manifest_text_errors_are_positioned() {
+    let ds =
+        Manifest::parse("package \"harbor\" {\n  null-format 1\n  kind materal\n}\n").unwrap_err();
+    let rendered: Vec<String> = ds.iter().map(ToString::to_string).collect();
+    assert_eq!(
+        rendered,
+        [
+            "error[cosmosis-manifest-kind]: `materal` is not a package kind\n  --> cosmosis.noll:3:8\n  help: did you mean `material`?"
+        ]
+    );
+    // Null's own diagnostics come first and alone: a broken file is not read for fields.
+    let ds = Manifest::parse("package \"harbor\" {\n  null-format 1\n").unwrap_err();
+    assert!(ds.iter().all(|d| d.code == "null-syntax"), "{ds:?}");
+}

@@ -1,13 +1,14 @@
 //! Cosmósis, Sau's project framework (`docs/spec/cosmosis-v0.md`): the project folder's
 //! layout, the `cosmosis.noll` manifest and the diagnostics `sau check` reports.
 //!
-//! Null's parser is not built yet (Sau task 1a-03). Until it is, the layout is checked
-//! without reading any file's meaning, and the manifest is read from a parser-neutral
-//! [`tree::Node`] tree that the parser will fill (Sau task 1a-11).
+//! Files are read with Null's parser ([`source`]) into a parser-neutral [`tree::Node`]
+//! tree, from which the manifest is read ([`manifest::Manifest::parse`], Sau task 1a-11).
+//! What each file means beyond its syntax is Null's checker's (Sau task 1a-06).
 
 pub mod diagnostic;
 pub mod layout;
 pub mod manifest;
+pub mod source;
 pub mod tree;
 
 pub use diagnostic::{Diagnostic, Severity};

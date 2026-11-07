@@ -21,6 +21,7 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 name = "cosmosis"
 version = "0.0.0"
 dependencies = [
+ "null_syntax",
  "sha2",
 ]
 
@@ -70,10 +71,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
+name = "null_syntax"
+version = "0.0.0"
+dependencies = [
+ "scowr_errors",
+ "scowr_syntax",
+]
+
+[[package]]
 name = "sau_cli"
 version = "0.0.0"
 dependencies = [
  "cosmosis",
+]
+
+[[package]]
+name = "scowr_errors"
+version = "0.0.0"
+
+[[package]]
+name = "scowr_syntax"
+version = "0.0.0"
+dependencies = [
+ "scowr_errors",
 ]
 
 [[package]]

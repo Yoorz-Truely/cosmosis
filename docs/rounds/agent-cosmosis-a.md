@@ -32,9 +32,17 @@ Choices made where the spec was silent, recorded in the spec's section 4: only t
 
 **Unverified.** None of the corpus is parsed or checked against the schema yet: that is 1a-15, with 1a-06 and 1a-11. Property names not settled by Null's spec are drafts: `vertices` and `faces` (RNA's are `vertices` and `polygons`), the primitive parameters (`size`, `radius`, `depth`, `vertices`, `segments`, `ring-count`, from Blender's add-primitive operators), `type` for a light's kind, and `object @x` lines in a scene for objects in its main collection.
 
+## 1a-11: the manifest through Null's parser
+
+**What works.** `crates/cosmosis/src/source.rs` reads a Null file with Null's parser (`null_syntax`, a new path dependency, MIT; with it Scowr's `scowr_syntax` and `scowr_errors`, MIT) into Cosmósis's parser-neutral tree: live nodes only (`/-` left out), a value the parser found missing adds nothing, and the keyword attributes `at`, `to` and `len` become the two arguments they are in Null. Null's diagnostics (`null-syntax`, `null-name`) come through with file, line, column and fix; Cosmósis's `Severity` gains `Warning` to carry Null's. `Manifest::parse(text)` reports Null's diagnostics alone when there are any, and otherwise reads the fields (C-02's rules, settled as S59). `sau check` now reads the manifest first and passes its kind to the layout check (so a `project` package without `project.noll` is an error), parses every other `.noll` file with Null's parser, and ends with a note that checking against Blender's schema is Null's checker (1a-06). Its summary names the package: `package "one-cube" (project, Null format 1): 6 Null files parse, 0 content files`.
+
+**Measured.** `cargo test --workspace`: 55 tests. New: 3 unit tests of the conversion (a manifest's tree with spans into the text; `/-` and keyword attributes; Null's diagnostics with code, position and fix); `the_specs_manifest_example_parses_and_checks` reads the spec's section 4 example from the spec itself through the parser; `manifest_text_errors_are_positioned`; and five CLI tests: a manifest with a name and `null-format` exits 0 and names the package; a wrong field (`licence`) is `cosmosis-manifest-unknown-field` at `cosmosis.noll:3:3` with "did you mean `license`?"; a broken manifest fails with `null-syntax`, `null-name`, `cosmosis-manifest-newer-format` or `cosmosis-manifest-no-package` at its position; a project without `project.noll` fails; a syntax error or a non-kebab name in another file fails with Null's code at its line. The six corpus drafts pass `sau check` with their manifests read and every file parsed. `just check` passes, the licence gate included over the new path dependencies.
+
+**Unverified.** The files are parsed, not checked against Blender's schema (1a-06). Cosmósis builds against Null's and Scowr's main checkouts by path, as they stand: their uncommitted work is in the build too (Null's worker had 1a-06 changes open when this was checked).
+
 ## Next
 
-C-01 to C-03 go to review together; then 1a-11 when `just tasks` lists it as ready.
+1a-11 to review; then the reviews of 1a-06 and 1a-07, and 1a-15 (the corpus through `sau check`) when it is ready.
 
 ## Also done
 

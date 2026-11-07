@@ -680,6 +680,21 @@ fn dependency_type(name: &str, expected: &'static str, v: &Value) -> ManifestErr
 }
 
 impl Manifest {
+    /// Reads and checks the text of `cosmosis.noll`: Null's parser first, whose diagnostics
+    /// (syntax, kebab-case names) are all that is reported if it finds any, then the fields.
+    pub fn parse(text: &str) -> Result<Manifest, Vec<Diagnostic>> {
+        let parsed = crate::source::parse(text, std::path::Path::new(MANIFEST_FILE));
+        if !parsed.diagnostics.is_empty() {
+            return Err(parsed.diagnostics);
+        }
+        Manifest::read(&parsed.nodes).map_err(|errors| {
+            errors
+                .iter()
+                .map(|e| e.to_diagnostic(text.as_bytes()))
+                .collect()
+        })
+    }
+
     /// Reads and checks a manifest from the nodes of `cosmosis.noll`, returning every error
     /// found, not only the first.
     pub fn read(nodes: &[Node]) -> Result<Manifest, Vec<ManifestError>> {

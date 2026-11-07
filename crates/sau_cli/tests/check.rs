@@ -1,5 +1,5 @@
 //! Tests of the `sau` command as a program: exit status, help, and `sau check` on valid and
-//! broken project folders (Sau task C-01).
+//! broken project folders: the layout (Sau task C-01), the manifest and Null's parser (1a-11).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,7 +17,7 @@ fn text(bytes: &[u8]) -> String {
     String::from_utf8(bytes.to_vec()).unwrap()
 }
 
-/// A fresh project folder with a manifest and `files`.
+/// A fresh project folder with a manifest, `project.noll` and `files` (which may replace them).
 fn project(name: &str, files: &[(&str, &[u8])]) -> PathBuf {
     static N: AtomicUsize = AtomicUsize::new(0);
     let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
@@ -32,8 +32,15 @@ fn project(name: &str, files: &[(&str, &[u8])]) -> PathBuf {
         "package \"p\" {\n  null-format 1\n}\n",
     )
     .unwrap();
+    fs::write(root.join("project.noll"), "project \"P\" {}\n").unwrap();
     for (path, contents) in files {
         let p = root.join(path);
+        // A default file standing where a folder is wanted (`project.noll/x`) gives way.
+        for dir in p.ancestors().skip(1).take_while(|d| *d != root) {
+            if dir.is_file() {
+                fs::remove_file(dir).unwrap();
+            }
+        }
         fs::create_dir_all(p.parent().unwrap()).unwrap();
         fs::write(p, contents).unwrap();
     }
@@ -113,12 +120,12 @@ fn a_valid_project_passes() {
     assert_eq!(
         text(&out.stdout),
         format!(
-            "sau check: {}: the layout is valid (3 Null files, 0 content files)\n",
+            "sau check: {}: package \"p\" (project, Null format 1): 3 Null files parse, 0 content files\n",
             shown.display()
         )
     );
     assert!(
-        text(&out.stderr).starts_with("note[cosmosis-not-parsed]: "),
+        text(&out.stderr).starts_with("note[cosmosis-no-schema]: "),
         "{}",
         text(&out.stderr)
     );
@@ -189,4 +196,110 @@ fn a_folder_outside_any_project_fails() {
     let out = sau(&["check", dir.to_str().unwrap()]);
     assert_eq!(out.status.code(), Some(1));
     assert!(text(&out.stderr).starts_with("error[cosmosis-no-project]: no cosmosis.noll in "));
+}
+
+#[test]
+fn a_manifest_with_a_name_and_null_format_parses_and_checks() {
+    // Sau task 1a-11: the manifest is read with Null's parser and checked.
+    let root = project(
+        "manifest-ok",
+        &[(
+            "cosmosis.noll",
+            b"package \"harbor\" {\n  kind material\n  null-format 1\n}\n",
+        )],
+    );
+    fs::remove_file(root.join("project.noll")).unwrap(); // A material package needs none.
+    let out = sau(&["check", root.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    let stdout = text(&out.stdout);
+    assert!(
+        stdout.contains(": package \"harbor\" (material, Null format 1): "),
+        "{stdout}"
+    );
+}
+
+#[test]
+fn a_wrong_field_is_an_error_at_its_line_and_column() {
+    let root = project(
+        "manifest-wrong",
+        &[(
+            "cosmosis.noll",
+            b"package \"p\" {\n  null-format 1\n  licence \"MIT\"\n}\n",
+        )],
+    );
+    let out = sau(&["check", root.to_str().unwrap()]);
+    let err = text(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{err}");
+    assert!(
+        err.starts_with(
+            "error[cosmosis-manifest-unknown-field]: the package has no field `licence`\n  \
+             --> cosmosis.noll:3:3\n  help: did you mean `license`?\n"
+        ),
+        "{err}"
+    );
+}
+
+#[test]
+fn broken_manifests_fail_with_their_codes() {
+    let cases: [(&str, &[u8], &str, &str); 4] = [
+        (
+            "manifest-syntax",
+            b"package \"p\" {\n  null-format 1\n",
+            "null-syntax",
+            "cosmosis.noll:1:13",
+        ),
+        (
+            "manifest-name",
+            b"package \"p\" {\n  null_format 1\n}\n",
+            "null-name",
+            "cosmosis.noll:2:3",
+        ),
+        (
+            "manifest-format",
+            b"package \"p\" { null-format 2 }\n",
+            "cosmosis-manifest-newer-format",
+            "cosmosis.noll:1:27",
+        ),
+        (
+            "manifest-none",
+            b"// nothing here\n",
+            "cosmosis-manifest-no-package",
+            "cosmosis.noll",
+        ),
+    ];
+    for (name, manifest, code, at) in cases {
+        fails_with(name, &[("cosmosis.noll", manifest)], code, at);
+    }
+}
+
+#[test]
+fn a_project_needs_project_noll_once_its_kind_is_read() {
+    let root = project("no-project-file", &[]);
+    fs::remove_file(root.join("project.noll")).unwrap();
+    let out = sau(&["check", root.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        text(&out.stderr)
+            .starts_with("error[cosmosis-layout-no-project-file]: the project has no project.noll"),
+        "{}",
+        text(&out.stderr)
+    );
+}
+
+#[test]
+fn every_null_file_goes_through_nulls_parser() {
+    let pier: &[u8] = b"object @pier {\n  location [0 0 1m\n}\n";
+    fails_with(
+        "file-syntax",
+        &[("objects/pier.noll", pier)],
+        "null-syntax",
+        "objects/pier.noll:2:12",
+    );
+    let named: &[u8] = b"object @pier {\n  rotation_euler [0 0 0]\n}\n";
+    fails_with(
+        "file-name",
+        &[("objects/pier.noll", named)],
+        "null-name",
+        "objects/pier.noll:2:3",
+    );
 }

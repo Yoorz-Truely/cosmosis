@@ -1,9 +1,10 @@
 //! The `sau` command (Cosmósis spec, section 7): project commands without Sau running,
 //! headless commands that start Sau, and actions on the open app through its gateway.
 //!
-//! Built so far: `sau check`, up to the layout stage (`cosmosis::layout`); reading the
-//! manifest and the Null files waits for Null's parser (Sau tasks 1a-03 and 1a-11). The other
-//! commands are listed by `sau --help` and say they are not built yet.
+//! Built so far: `sau check`, which reads the manifest, checks the layout and parses every
+//! Null file with Null's parser (Sau tasks C-01 and 1a-11); checking the files against
+//! Blender's schema is Null's checker (1a-06). The other commands are listed by `sau --help`
+//! and say they are not built yet.
 //!
 //! Exit status: 0 when the command succeeded, 1 when it found errors, 2 on wrong usage or a
 //! command that is not built yet.
@@ -13,6 +14,8 @@ use std::process::ExitCode;
 
 use cosmosis::diagnostic::{Diagnostic, nearest};
 use cosmosis::layout;
+use cosmosis::manifest::{MANIFEST_FILE, Manifest};
+use cosmosis::source;
 
 /// Every command in the spec: name, what it does, and whether it is built.
 const COMMANDS: [(&str, &str, bool); 15] = [
@@ -81,9 +84,10 @@ const CHECK_HELP: &str = "Usage: sau check [path]
 Checks the project holding <path>, a folder or a file in it (default: the current folder).
 The project is the nearest folder, from <path> upwards, holding cosmosis.noll.
 
-Checked now: the layout (cosmosis.noll and the root's other Null files are files; every .noll
-file is UTF-8 text; media/ and data/ files are named by their SHA-256). Reading the manifest
-and the Null files comes with Null's parser.
+Checked: the manifest (cosmosis.noll: its name, null-format and other fields); the layout (the
+root's Null files are files, a project has project.noll, every .noll file is UTF-8 text, media/
+and data/ files are named by their SHA-256); and every Null file's syntax and names, with Null's
+parser. Checking the files against Blender's schema comes with Null's checker.
 
 Exit status: 0 when no errors were found, 1 when some were, 2 on wrong usage.
 ";
@@ -148,23 +152,49 @@ fn check(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let found = layout::check(&root, None);
-    report(&found.diagnostics);
-    let errors = found.errors();
+    // The manifest first: its kind decides what the layout needs (a project has project.noll).
+    let manifest_path = root.join(MANIFEST_FILE);
+    let mut diagnostics = Vec::new();
+    let manifest = match std::fs::read_to_string(&manifest_path) {
+        Ok(text) => match Manifest::parse(&text) {
+            Ok(m) => Some(m),
+            Err(found) => {
+                diagnostics.extend(found);
+                None
+            }
+        },
+        Err(_) => None, // Not a file, unreadable or not UTF-8: the layout check says which.
+    };
+    let found = layout::check(&root, manifest.as_ref().map(|m| m.kind));
+    diagnostics.extend(found.diagnostics.iter().cloned());
+    // Every other Null file through Null's parser: syntax and kebab-case names.
+    for file in found
+        .sources
+        .iter()
+        .filter(|f| f.path != Path::new(MANIFEST_FILE))
+    {
+        diagnostics.extend(source::parse(&file.text, &file.path).diagnostics);
+    }
+    report(&diagnostics);
+    let errors = diagnostics.iter().filter(|d| d.is_error()).count();
     if errors > 0 {
         let s = if errors == 1 { "" } else { "s" };
         eprintln!("sau check: {errors} error{s} in {}", root.display());
         return ExitCode::FAILURE;
     }
     report(&[Diagnostic::note(
-        "cosmosis-not-parsed",
-        "the manifest and the Null files are not read yet: that needs Null's parser (Sau tasks 1a-03 and 1a-11)",
+        "cosmosis-no-schema",
+        "the files are parsed but not yet checked against Blender's schema: that is Null's checker (Sau task 1a-06)",
     )]);
     let plural = |n: usize| if n == 1 { "" } else { "s" };
     let (n, c) = (found.sources.len(), found.content_files);
+    let m = manifest.expect("no errors means the manifest was read");
     println!(
-        "sau check: {}: the layout is valid ({n} Null file{}, {c} content file{})",
+        "sau check: {}: package \"{}\" ({}, Null format {}): {n} Null file{} parse, {c} content file{}",
         root.display(),
+        m.name,
+        m.kind.as_str(),
+        m.null_format,
         plural(n),
         plural(c),
     );

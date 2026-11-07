@@ -8,6 +8,8 @@ publish.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+# Null's parser, by path (Sau's boundaries: Cosmósis depends on Null). MIT.
+null_syntax = { path = "../../../Null/compiler/null_syntax" }
 sha2 = "0.10"
 
 [lints]
