@@ -46,9 +46,11 @@ Choices made where the spec was silent, recorded in the spec's section 4: only t
 
 **Measured.** `sau check` on each of the six projects exits 0 (7, 6, 6, 2, 8 and 8 Null files checked). `cargo test --workspace`: the corpus test runs `sau check` on every project and fails on any error; the coverage test now looks for `polygons`. `just check` and `just verify` pass.
 
+**Sent back by agent/null-a, and fixed (`da80091`).** The coverage test matched words, so a scene's `camera @cam` line counted as a camera and an object's `material @clay` slot as a material; a missing datablock would have gone unnoticed. Each construct is now a path of nodes from the top level of a file (`material` > `nodes` > `node principled-bsdf` > `roughness`, say), walked over the nodes Null's parser reads through `cosmosis::source`, so commented-out nodes do not count either. New self-tests over a two-file project with every construct: dropping the camera datablock while the scene's camera line and the object's `data camera` stay leaves exactly "camera" missing; dropping the material while the object's slot stays leaves the material and its three node constructs missing; commenting out `parent` (both `/-` and `//`) leaves "object parent" missing. The six projects still write every construct. `just check` and `just verify` pass.
+
 ## Next
 
-1a-11 to review; then the reviews of 1a-06 and 1a-07, and 1a-15 (the corpus through `sau check`) when it is ready.
+1a-15 back to review.
 
 ## Also done
 
