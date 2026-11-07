@@ -27,8 +27,8 @@ pre-commit:
       run: gitleaks git --staged --no-banner --redact .
 
 commit-msg:
-  skip:
-    - merge
+  # Merges are not skipped here: `checked` itself lets a real merge through and refuses a
+  # MERGE_HEAD written by hand (task 0-10).
   jobs:
     # Code is committed only on a tree `just check` passed on (task 0-10). It runs here, not in
     # pre-commit, because lefthook re-stages what the pre-commit fixers change only after every

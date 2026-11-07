@@ -7,7 +7,7 @@ commit-msg hook calls `require`: by then pre-commit's fixers have re-staged what
 so the index is what will be committed. It refuses a commit that touches code unless its staged
 tree has such a record. "The tree" is every file that is not ignored, as `git add -A` would
 stage it, tracked or not; documents may differ from it, code may not. Merges (a MERGE_HEAD
-other than HEAD) and documents-only commits need no record.
+naming a commit that is not HEAD or its ancestor) and documents-only commits need no record.
 
 Not code: `*.md` and everything under `docs/`; in Null and Cosmósis also images (`.png`, `.jpg`,
 `.jpeg`, `.gif`, `.svg`, `.webp`). Sau builds its branding images into the app, so there they
@@ -106,20 +106,31 @@ def passed(key, cwd=None, quiet=False):
     return 0
 
 
+def is_real_merge(git_dir, cwd=None):
+    """Whether this commit merges work in: every commit MERGE_HEAD names exists and is not HEAD
+    or one of HEAD's ancestors. A MERGE_HEAD written by hand to name HEAD or an older commit of
+    this branch merges nothing, so it exempts nothing."""
+    merge_head = git_dir / "MERGE_HEAD"
+    if not merge_head.exists():
+        return False
+    heads = merge_head.read_text().split()
+    if not heads:
+        return False
+    for h in heads:
+        theirs = git("rev-parse", "--verify", "-q", h + "^{commit}", cwd=cwd, check=False).strip()
+        if not theirs:
+            return False
+        ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", theirs, "HEAD"], cwd=cwd, capture_output=True)
+        if ancestor.returncode == 0:
+            return False
+    return True
+
+
 def require(cwd=None):
     root = top(cwd)
     git_dir = pathlib.Path(git("rev-parse", "--path-format=absolute", "--git-dir", cwd=cwd).strip())
-    merge_head = git_dir / "MERGE_HEAD"
-    if merge_head.exists():
-        # A merge brings commits that were checked on their own branches: a real one names a
-        # commit other than HEAD (a MERGE_HEAD made by hand equal to HEAD exempts nothing).
-        theirs = (
-            git("rev-parse", "--verify", "-q", merge_head.read_text().split()[0] + "^{commit}", cwd=cwd, check=False).strip()
-            if merge_head.read_text().split()
-            else ""
-        )
-        if theirs and theirs != git("rev-parse", "HEAD", cwd=cwd).strip():
-            return 0
+    if is_real_merge(git_dir, cwd):
+        return 0  # a merge brings commits that were checked on their own branches
     staged = [p for p in git("diff", "--cached", "--name-only", "-z", cwd=cwd).split("\0") if p]
     sau = is_sau(root)
     code = [p for p in staged if is_code(p, sau)]
@@ -252,6 +263,8 @@ def scenario(sau, me, expect):
         head = run("rev-parse", "HEAD").strip()
         pathlib.Path(run("rev-parse", "--path-format=absolute", "--git-dir").strip(), "MERGE_HEAD").write_text(head + "\n")
         expect(f"{tag}: code with a hand-made MERGE_HEAD equal to HEAD", commit("fake merge"), False)
+        pathlib.Path(run("rev-parse", "--path-format=absolute", "--git-dir").strip(), "MERGE_HEAD").write_text(run("rev-parse", "HEAD~1"))
+        expect(f"{tag}: code with a hand-made MERGE_HEAD naming HEAD's parent", commit("fake merge"), False)
         pathlib.Path(run("rev-parse", "--path-format=absolute", "--git-dir").strip(), "MERGE_HEAD").unlink()
 
 
@@ -286,6 +299,38 @@ def fixer_order(me, expect):
         r = subprocess.run(["git", "commit", "-q", "-m", "toml"], cwd=repo, capture_output=True, text=True)
         expect("lefthook: the same file after a check on its formatted form", r.returncode == 0, True)
 
+        def commit(msg):
+            run("add", "-A")
+            return subprocess.run(["git", "commit", "-q", "-m", msg], cwd=repo, capture_output=True, text=True).returncode == 0
+
+        def checked():
+            start("t", cwd=repo)
+            passed("t", cwd=repo, quiet=True)
+
+        (repo / "src.rs").write_text("fn a() {}\n")
+        checked()
+        commit("a second commit, so HEAD~1 exists")
+        git_dir = pathlib.Path(run("rev-parse", "--path-format=absolute", "--git-dir").strip())
+        # A MERGE_HEAD written by hand, naming HEAD or an older commit of this branch, merges
+        # nothing: lefthook does not skip the commit, and `checked` refuses it.
+        for name, rev in (("HEAD", "HEAD"), ("HEAD~1", "HEAD~1")):
+            (repo / "src.rs").write_text(f"fn by_hand_{name.replace('~', '_')}() {{}}\n")
+            (git_dir / "MERGE_HEAD").write_text(run("rev-parse", rev))
+            expect(f"lefthook: unchecked code with a hand-made MERGE_HEAD of {name}", commit("fake merge"), False)
+            (git_dir / "MERGE_HEAD").unlink()
+            run("reset", "-q", "--hard")
+        # A real merge, of a branch whose commits were checked, needs no record of its own.
+        run("checkout", "-q", "-b", "side")
+        (repo / "side.rs").write_text("fn side() {}\n")
+        checked()
+        commit("side")
+        run("checkout", "-q", "main")
+        (repo / "main.rs").write_text("fn main_side() {}\n")
+        checked()
+        commit("main")
+        r = subprocess.run(["git", "merge", "-q", "--no-ff", "-m", "Merge side", "side"], cwd=repo, capture_output=True, text=True)
+        expect("lefthook: a real merge, with no check of its own", r.returncode == 0, True)
+
 
 def selftest():
     """Commits in throwaway repositories: refused without a check, after a failed check and after
@@ -314,6 +359,8 @@ def selftest():
         failures.append(f"{hooks.name} does not run `{call} require` before a commit")
     elif text.index(f"{call} require") < text.index("commit-msg:"):
         failures.append(f"{hooks.name} must run `checked` in commit-msg, after pre-commit's fixers re-stage")
+    elif "- merge" in text[text.index("commit-msg:") :]:
+        failures.append(f"{hooks.name}'s commit-msg must not skip merges: `checked` decides which merges are real")
     for c in checks:
         text = c.read_text()
         if f"{call} start" not in text or f"{call} pass" not in text:
