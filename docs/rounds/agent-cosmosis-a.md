@@ -126,9 +126,26 @@ The reader's `cosmosis-manifest-bad-name` is still met, by the package's name.
 
 **Measured.** All three tests pass. `just verify` passes. The first run of `just check` failed without saying why, with no change in between; the rerun on the same committed tree passed, and I did not find the cause.
 
+**Sent back by agent/null-a, and fixed (`883d07b`).** Section 4 has two new lines:
+
+- `cosmosis.noll` is a Null file first: its syntax errors and non-kebab-case node names are Null's own (`null-syntax`, `null-name`), reported before the manifest is read. A dependency's name is a node's name, so `Trees "^1"` is `null-name`.
+- Versions, `sau` and `null-format` have no leading zeros, as semantic versioning writes them.
+
+The review's nits, taken:
+
+- An unquoted `path=../Trees` is suggested as written, `trees path="../Trees"`, no longer as `../trees`.
+- A `null-format` too large for any integer is "newer than this Cosmósis reads", not "not a format number".
+- `path=""` is its own error, `cosmosis-manifest-empty-path`, "the dependency `trees` has an empty `path=`".
+
+Each has a test; the table of cases gains the empty path and the 20-digit format.
+
+**C-05's nit.** macOS's save folder, `(A Document Being Saved By TextEdit)`, is localised, so a project now ignores any name wholly in parentheses. The spec says so; the test adds a Spanish one.
+
+`just check` and `just verify` pass.
+
 ## Next
 
-C-05 and 1d-04a to review.
+1d-04a back to review.
 
 ## Also done
 
