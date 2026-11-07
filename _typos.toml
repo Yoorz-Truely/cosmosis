@@ -1,5 +1,9 @@
 # Exceptions for the spelling hook. Each word is a deliberate misspelling in a test of the
 # suggestions Cosmósis makes, such as "did you mean `material`?".
+[default]
+# Commit hashes are not words (as in Sau's _typos.toml).
+extend-ignore-re = ["\\b[0-9a-f]{7,40}\\b"]
+
 [default.extend-words]
 chek = "chek"
 materal = "materal"
