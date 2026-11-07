@@ -15,6 +15,8 @@ check:
     python3 tools/check-record.py selftest
     python3 tools/build-guard.py wait
     cargo fmt --check
+    # The pre-commit fixers' formatters in check mode, so a tree that passes is one they leave alone.
+    git ls-files -co --exclude-standard -z -- '*.toml' | RUST_LOG=warn xargs -0 taplo fmt --check
     cargo clippy --workspace --all-targets --locked -- -D warnings
     cargo test --workspace --locked
     cargo deny --offline check licenses bans sources

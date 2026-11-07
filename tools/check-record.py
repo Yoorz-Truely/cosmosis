@@ -3,10 +3,11 @@
 
 `just check` calls `start <key>` first and `pass <key>` last. `pass` records the tree the check
 ran on in `work/check/passed`, but only if the files did not change while it ran. The
-pre-commit hook calls `require`. It refuses a commit that touches code unless its staged tree
-has such a record. "The tree" is every file that is not ignored, as `git add -A` would stage it,
-tracked or not; documents may differ from it, code may not. Merges and documents-only commits
-need no record.
+commit-msg hook calls `require`: by then pre-commit's fixers have re-staged what they changed,
+so the index is what will be committed. It refuses a commit that touches code unless its staged
+tree has such a record. "The tree" is every file that is not ignored, as `git add -A` would
+stage it, tracked or not; documents may differ from it, code may not. Merges (a MERGE_HEAD
+other than HEAD) and documents-only commits need no record.
 
 Not code: `*.md` and everything under `docs/`; in Null and Cosmósis also images (`.png`, `.jpg`,
 `.jpeg`, `.gif`, `.svg`, `.webp`). Sau builds its branding images into the app, so there they
@@ -108,8 +109,17 @@ def passed(key, cwd=None, quiet=False):
 def require(cwd=None):
     root = top(cwd)
     git_dir = pathlib.Path(git("rev-parse", "--path-format=absolute", "--git-dir", cwd=cwd).strip())
-    if (git_dir / "MERGE_HEAD").exists():
-        return 0  # a merge brings commits that were checked on their own branches
+    merge_head = git_dir / "MERGE_HEAD"
+    if merge_head.exists():
+        # A merge brings commits that were checked on their own branches: a real one names a
+        # commit other than HEAD (a MERGE_HEAD made by hand equal to HEAD exempts nothing).
+        theirs = (
+            git("rev-parse", "--verify", "-q", merge_head.read_text().split()[0] + "^{commit}", cwd=cwd, check=False).strip()
+            if merge_head.read_text().split()
+            else ""
+        )
+        if theirs and theirs != git("rev-parse", "HEAD", cwd=cwd).strip():
+            return 0
     staged = [p for p in git("diff", "--cached", "--name-only", "-z", cwd=cwd).split("\0") if p]
     sau = is_sau(root)
     code = [p for p in staged if is_code(p, sau)]
@@ -237,6 +247,44 @@ def scenario(sau, me, expect):
         subprocess.run(["git", "merge", "-q", "side"], cwd=repo, capture_output=True)
         src.write_text("fn merged() {}\n")
         expect(f"{tag}: a merge resolved by hand", commit("merge"), True)
+        # A MERGE_HEAD written by hand, naming HEAD itself, exempts nothing.
+        src.write_text("fn not_a_merge() {}\n")
+        head = run("rev-parse", "HEAD").strip()
+        pathlib.Path(run("rev-parse", "--path-format=absolute", "--git-dir").strip(), "MERGE_HEAD").write_text(head + "\n")
+        expect(f"{tag}: code with a hand-made MERGE_HEAD equal to HEAD", commit("fake merge"), False)
+        pathlib.Path(run("rev-parse", "--path-format=absolute", "--git-dir").strip(), "MERGE_HEAD").unlink()
+
+
+def fixer_order(me, expect):
+    """Through lefthook itself: a pre-commit fixer (Taplo here) re-stages its file only after every
+    pre-commit job, so `checked` runs in commit-msg, on the index as it will be committed. A file the
+    fixer changes after the check is refused."""
+    with tempfile.TemporaryDirectory() as d:
+        repo = pathlib.Path(d)
+
+        def run(*a):
+            return git(*a, cwd=repo)
+
+        run("init", "-q", "-b", "main")
+        for k, v in (("user.name", "test"), ("user.email", "test@example.invalid"), ("commit.gpgsign", "false")):
+            run("config", k, v)
+        (repo / ".gitignore").write_text("/work/\n")
+        (repo / "lefthook.yml").write_text(
+            'pre-commit:\n  parallel: true\n  jobs:\n    - name: toml\n      glob: "*.toml"\n'
+            "      run: taplo fmt {staged_files}\n      stage_fixed: true\n"
+            f"commit-msg:\n  jobs:\n    - name: checked\n      run: {sys.executable} {me} require\n"
+        )
+        subprocess.run(["lefthook", "install"], cwd=repo, capture_output=True, check=True)
+        (repo / "Cargo.toml").write_text('[package]\nname    =   "x"\n')
+        run("add", "-A")
+        start("t", cwd=repo)
+        passed("t", cwd=repo, quiet=True)  # a check that saw the file as written, unformatted
+        r = subprocess.run(["git", "commit", "-q", "-m", "toml"], cwd=repo, capture_output=True, text=True)
+        expect("lefthook: a file a pre-commit fixer re-stages after the check", r.returncode == 0, False)
+        start("t", cwd=repo)
+        passed("t", cwd=repo, quiet=True)  # the check run again, on the formatted file
+        r = subprocess.run(["git", "commit", "-q", "-m", "toml"], cwd=repo, capture_output=True, text=True)
+        expect("lefthook: the same file after a check on its formatted form", r.returncode == 0, True)
 
 
 def selftest():
@@ -252,6 +300,7 @@ def selftest():
 
     for sau in (False, True):
         scenario(sau, me, expect)
+    fixer_order(me, expect)
 
     root = top()
     if is_sau(root):
@@ -260,8 +309,11 @@ def selftest():
     else:
         hooks, checks = root / "lefthook.yml", [root / "justfile"]
         call = "tools/check-record.py"
-    if f"{call} require" not in hooks.read_text():
+    text = hooks.read_text()
+    if f"{call} require" not in text:
         failures.append(f"{hooks.name} does not run `{call} require` before a commit")
+    elif text.index(f"{call} require") < text.index("commit-msg:"):
+        failures.append(f"{hooks.name} must run `checked` in commit-msg, after pre-commit's fixers re-stage")
     for c in checks:
         text = c.read_text()
         if f"{call} start" not in text or f"{call} pass" not in text:

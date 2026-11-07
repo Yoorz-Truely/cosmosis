@@ -1,6 +1,6 @@
 # Git hooks. Install once per clone with `just hooks`; every worktree shares them.
 # Pre-commit checks only staged files; a code commit needs a passing `just check` on its very
-# tree (job `checked`).
+# tree (commit-msg job `checked`).
 output:
   - failure
   - summary
@@ -26,13 +26,15 @@ pre-commit:
     - name: secrets
       run: gitleaks git --staged --no-banner --redact .
 
-    # Code is committed only on a tree `just check` passed on (tools/check-record.py, task 0-10).
-    - name: checked
-      run: python3 tools/check-record.py require
-
 commit-msg:
   skip:
     - merge
   jobs:
+    # Code is committed only on a tree `just check` passed on (task 0-10). It runs here, not in
+    # pre-commit, because lefthook re-stages what the pre-commit fixers change only after every
+    # pre-commit job has run; by commit-msg the index is what will be committed.
+    - name: checked
+      run: python3 tools/check-record.py require
+
     - name: message
       run: python3 tools/commit-msg.py {1}
