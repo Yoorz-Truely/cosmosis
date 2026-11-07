@@ -9,7 +9,8 @@ Cosmósis is Sau's project framework and owns the `sau` command ([README](README
 - Original code only, with permissive dependencies checked first. Never copy GPL-family code, including Blender's: Cosmósis is MIT and starts Sau as a separate program.
 - Work from Sau's task board (`../Sau/docs/TASKS.md`, `just tasks` in Sau): claim a task before starting it, hold at most three, and move each through `review` and `done` (`../Sau/docs/agents/workflow.md`). Read Sau's `HANDOFF.md` for the current state.
 - Work in your own worktree on your own branch, never in the main checkout or on `main` unless you are the integrator: `just wt-new <name> --repos cosmosis` in Sau makes one (`../Sau/docs/agents/parallel.md`).
-- Commit every working change as soon as it works and `just check` exits 0 on its own (format, Clippy with warnings as errors, tests); a commit of documents alone needs only the git hooks. Never push, never bypass the hooks (`just hooks` installs them).
+- Commit every working change as soon as it works and `just check` exits 0 on its own (format, Clippy with warnings as errors, tests, the licence gate); a commit of documents alone needs only the git hooks. Before a task goes to review: `just sync` in Sau's worktree, then `just verify` (property tests and fuzzing too). Never push, never bypass the hooks (`just hooks` installs them).
+- Only permissive dependencies: `deny.toml` lists the licences allowed, and `just check` refuses others.
 - Every compile goes through the build guard (`tools/build-guard.py`, an identical copy of Sau's), which keeps the shared Mac cool. Do not bypass it.
 - Sau (`~/Projects/Sau`), Null (`~/Projects/Null`) and Baarton (`~/Projects/Baarton`) are separate repositories. Change them only when the task says so.
 
@@ -24,3 +25,4 @@ Cosmósis is Sau's project framework and owns the `sau` command ([README](README
 | Taking and finishing work; commits; reports | Sau's `docs/agents/workflow.md` and `docs/TASKS.md` |
 | Worktrees, machine limits, merging | Sau's `docs/agents/parallel.md` |
 | What each repository owns; licences | Sau's `docs/agents/boundaries.md` |
+| What to test, and the gates | Sau's `docs/agents/testing.md` |
