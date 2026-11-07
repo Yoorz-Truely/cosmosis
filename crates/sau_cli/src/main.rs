@@ -148,7 +148,7 @@ fn check(args: &[String]) -> ExitCode {
     let root = match layout::find_root(Path::new(path.unwrap_or("."))) {
         Ok(root) => root,
         Err(d) => {
-            report(&[d]);
+            report(&[*d]);
             return ExitCode::FAILURE;
         }
     };

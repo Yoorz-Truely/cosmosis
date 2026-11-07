@@ -3,17 +3,16 @@
 //! The schema is Null's `schema/null-schema.json`, generated from the built Sau's RNA (Sau task
 //! 1a-05), compiled in from Null's repository by path. Every file is checked together, so a
 //! handle defined in one file resolves in another (Null spec, section 7). `cosmosis.noll` is
-//! Cosmósis's manifest, read by [`crate::manifest`], and is left out.
+//! Cosmósis's manifest, read by [`crate::manifest`], and is left out, as are the files whose
+//! forms are their own ([`holds_datablocks`]: `settings.noll`, `view.noll`, `.sau/ids.noll`).
 
-use std::path::Path;
 use std::sync::OnceLock;
 
 use null_check::Schema;
 use null_syntax::{FileId, Severity as NullSeverity};
 
 use crate::diagnostic::{Diagnostic, Severity};
-use crate::layout::SourceFile;
-use crate::manifest::MANIFEST_FILE;
+use crate::layout::{SourceFile, holds_datablocks};
 use crate::tree::Span;
 
 /// The schema's text, as Null holds it.
@@ -30,7 +29,7 @@ pub fn schema() -> &'static Schema {
 pub fn check(sources: &[SourceFile]) -> Vec<Diagnostic> {
     let files: Vec<&SourceFile> = sources
         .iter()
-        .filter(|f| f.path != Path::new(MANIFEST_FILE))
+        .filter(|f| holds_datablocks(&f.path))
         .collect();
     let parses: Vec<_> = files.iter().map(|f| null_syntax::parse(&f.text)).collect();
     let ids: Vec<(FileId, &null_syntax::Parse)> = parses
@@ -59,6 +58,19 @@ pub fn check(sources: &[SourceFile]) -> Vec<Diagnostic> {
                     file.text.as_bytes(),
                     span.start,
                 ));
+            }
+            // The other places it names, such as where a handle was first defined, so a handle
+            // defined twice names both files (Cosmósis spec, section 2).
+            for label in &d.secondary {
+                if let Some(other) = files.get(label.location.file.0 as usize) {
+                    let span = Span::new(label.location.span.start, label.location.span.end);
+                    out = out.with_related(
+                        &other.path,
+                        other.text.as_bytes(),
+                        span,
+                        label.message.clone(),
+                    );
+                }
             }
             if let Some(fix) = d.fixes.first() {
                 out = out.with_help(fix.message.clone());

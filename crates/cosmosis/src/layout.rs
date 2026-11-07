@@ -13,7 +13,10 @@
 //!
 //! Folders whose names start with `.` (`.sau/`, the cache; `.git/`) and `renders/` are not
 //! source and are skipped, as is a folder holding a `cosmosis.noll` of its own, which is a
-//! separate project.
+//! separate project. The one exception is `.sau/ids.noll`, the map of handles to persistent IDs,
+//! which is source and read with the other Null files (Sau's decisions S61 (2) and S66).
+//! `settings.noll`, `view.noll` and `.sau/ids.noll` are read for their syntax only
+//! ([`holds_datablocks`]).
 
 use std::fs;
 use std::io::Read;
@@ -33,6 +36,9 @@ pub const PROJECT_FILE: &str = "project.noll";
 pub const VIEW_FILE: &str = "view.noll";
 /// The project's own settings.
 pub const SETTINGS_FILE: &str = "settings.noll";
+/// The handle-to-ID map (Sau's decisions S61 (2) and S66): the one source file in the cache
+/// folder `.sau/`, kept in Git; its form is Sau's task 1b-01f's.
+pub const IDS_FILE: &str = ".sau/ids.noll";
 /// The root's names that must be files.
 pub const ROOT_FILES: [&str; 5] = [
     MANIFEST_FILE,
@@ -41,6 +47,16 @@ pub const ROOT_FILES: [&str; 5] = [
     VIEW_FILE,
     SETTINGS_FILE,
 ];
+/// Whether the Null file at `path` (from the root) defines datablocks, so Null's checker reads
+/// it against Blender's schema. The manifest is Cosmósis's own; `settings.noll`, `view.noll`
+/// and `.sau/ids.noll` are Null text whose forms are their own and not yet specified, so only
+/// their syntax is checked (Sau's decision S66).
+pub fn holds_datablocks(path: &Path) -> bool {
+    ![MANIFEST_FILE, SETTINGS_FILE, VIEW_FILE, IDS_FILE]
+        .iter()
+        .any(|special| path == Path::new(special))
+}
+
 /// Folders whose files are named by their contents.
 pub const CONTENT_FOLDERS: [&str; 2] = ["media", "data"];
 /// Output folders at the root that are not source.
@@ -106,13 +122,14 @@ impl Layout {
 }
 
 /// The project holding `start`: the nearest folder, from `start` upwards, that holds
-/// `cosmosis.noll` (S37). `start` may be a folder or a file inside the project.
-pub fn find_root(start: &Path) -> Result<PathBuf, Diagnostic> {
+/// `cosmosis.noll` (S37). `start` may be a folder or a file inside the project. The error is
+/// boxed, as a diagnostic is large.
+pub fn find_root(start: &Path) -> Result<PathBuf, Box<Diagnostic>> {
     let full = start.canonicalize().map_err(|e| {
-        Diagnostic::error(
+        Box::new(Diagnostic::error(
             "cosmosis-no-such-path",
             format!("cannot open {}: {e}", start.display()),
-        )
+        ))
     })?;
     let dir = if full.is_dir() {
         full.as_path()
@@ -123,17 +140,19 @@ pub fn find_root(start: &Path) -> Result<PathBuf, Diagnostic> {
         .find(|d| d.join(MANIFEST_FILE).symlink_metadata().is_ok())
         .map(Path::to_path_buf)
         .ok_or_else(|| {
-            Diagnostic::error(
-                "cosmosis-no-project",
-                format!(
-                    "no {MANIFEST_FILE} in {} or any folder above it",
-                    dir.display()
-                ),
-            )
-            .with_help(format!(
-                "a project is a folder with {MANIFEST_FILE} at its root, such as \
+            Box::new(
+                Diagnostic::error(
+                    "cosmosis-no-project",
+                    format!(
+                        "no {MANIFEST_FILE} in {} or any folder above it",
+                        dir.display()
+                    ),
+                )
+                .with_help(format!(
+                    "a project is a folder with {MANIFEST_FILE} at its root, such as \
                  `package \"my-project\" {{ null-format 1 }}`"
-            ))
+                )),
+            )
         })
 }
 
@@ -169,6 +188,22 @@ pub fn check(root: &Path, kind: Option<Kind>) -> Layout {
         );
     }
     walk(root, Path::new(""), &mut layout);
+    // `.sau/` is a cache and skipped as hidden, but for the ID map, which is source (S66).
+    let ids = root.join(IDS_FILE);
+    if ids.is_dir() {
+        layout.diagnostics.push(
+            Diagnostic::error(
+                "cosmosis-layout-not-a-file",
+                format!("{IDS_FILE} is a folder, not a file"),
+            )
+            .in_file(IDS_FILE)
+            .with_help(format!(
+                "{IDS_FILE} is the project's map of handles to persistent IDs, a Null file; rename the folder"
+            )),
+        );
+    } else if ids.exists() {
+        source(&ids, PathBuf::from(IDS_FILE), &mut layout);
+    }
     layout
 }
 

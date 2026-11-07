@@ -1,0 +1,4 @@
+# Written as .gitattributes into a new Cosmósis project (Cosmósis spec, section 2, "Version
+# control"). Files named by their contents go to Git LFS.
+/media/** filter=lfs diff=lfs merge=lfs -text
+/data/** filter=lfs diff=lfs merge=lfs -text
