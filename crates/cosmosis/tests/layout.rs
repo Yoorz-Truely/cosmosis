@@ -343,6 +343,7 @@ fn editors_and_system_files_are_ignored_even_ending_in_noll() {
         "objects/cube.sb-1a2b3c4d-AbCdEf.noll",
         "objects/cube.noll___jb_tmp___",
         "objects/(A Document Being Saved By TextEdit)/cube.noll",
+        "objects/(Un documento que guarda TextEdit)/cube.noll",
         "objects/.hidden/cube.noll",
     ];
     for name in ignored {

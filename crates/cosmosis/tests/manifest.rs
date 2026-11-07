@@ -254,7 +254,7 @@ fn a_value_of_the_wrong_form_is_an_error() {
 
 #[test]
 fn null_format_is_a_whole_number_from_one() {
-    for bad in ["0", "1.5", "-1", "01", "+1", "one", "99999999999"] {
+    for bad in ["0", "1.5", "-1", "01", "+1", "one"] {
         let p = Node::new("package")
             .arg(s("harbor"))
             .child(field("null-format", w(bad)));
@@ -272,16 +272,49 @@ fn null_format_is_a_whole_number_from_one() {
 
 #[test]
 fn a_newer_null_format_cannot_be_read() {
-    let p = Node::new("package")
-        .arg(s("harbor"))
-        .child(field("null-format", w("2")));
+    // Any whole number above the newest, however large: it is newer, not malformed.
+    for newer in ["2", "99999999999", "99999999999999999999"] {
+        let p = Node::new("package")
+            .arg(s("harbor"))
+            .child(field("null-format", w(newer)));
+        assert_eq!(
+            error(&[p]),
+            e(
+                "cosmosis-manifest-newer-format",
+                &format!(
+                    "the project is written in Null format {newer}, newer than this Cosmósis reads (format 1)"
+                ),
+                "open it with a newer Sau: older formats are migrated, newer ones cannot be"
+            ),
+            "{newer}"
+        );
+    }
+}
+
+#[test]
+fn a_path_keeps_its_case_and_an_empty_one_is_named() {
+    // `path=../Trees` unquoted: the help quotes it as written, not lower-cased.
+    let ds = Manifest::parse(
+        "package \"harbor\" {\n  null-format 1\n  dependencies {\n    trees path=../Trees\n  }\n}\n",
+    )
+    .unwrap_err();
+    assert_eq!(ds.len(), 1, "{ds:?}");
+    assert_eq!(ds[0].code, "cosmosis-manifest-type");
     assert_eq!(
-        error(&[p]),
-        e(
-            "cosmosis-manifest-newer-format",
-            "the project is written in Null format 2, newer than this Cosmósis reads (format 1)",
-            "open it with a newer Sau: older formats are migrated, newer ones cannot be"
-        )
+        ds[0].help.as_deref(),
+        Some("write it as `trees path=\"../Trees\"`")
+    );
+    let ds = Manifest::parse(
+        "package \"harbor\" {\n  null-format 1\n  dependencies {\n    trees path=\"\"\n  }\n}\n",
+    )
+    .unwrap_err();
+    let got: Vec<_> = ds.iter().map(|d| (d.code, d.message.as_str())).collect();
+    assert_eq!(
+        got,
+        [(
+            "cosmosis-manifest-empty-path",
+            "the dependency `trees` has an empty `path=`"
+        )]
     );
 }
 

@@ -62,7 +62,7 @@ A project ignores files and folders that editors and the system make beside its 
 - ending in `~` (backups) or `#` (Emacs's `#x#`);
 - ending in `.tmp`, `.temp`, `.bak`, `.swp`, `.swo`, `.swx`, `.crswap` or `.vsctmp` (VS Code's atomic save), in any case;
 - holding `.sb-` (macOS's safe save, `x.sb-1a2b3c4d-AbCdEf`), `___jb_` (JetBrains' safe write) or `.noll.` (a copy of a Null file under another name, such as `x.noll.saving.noll`);
-- of a folder macOS makes while saving, `(A Document Being Saved By …)`.
+- of a folder wholly in parentheses, as macOS names the folder it saves through, `(A Document Being Saved By TextEdit)` in English and in other words in other languages.
 
 So a project's own files are never named so. An entry that disappears between a folder's listing and its reading is skipped too, as a temporary file renamed away has (task C-04).
 
@@ -106,10 +106,11 @@ The manifest pins the Sau version and Null format a project was written for, so 
 How it is read (November 7, 2026, Sau task C-02; `crates/cosmosis/src/manifest.rs`):
 
 - The name, the quoted string after `package`, and `null-format` are required: they are all a manifest needs (S37, S45). Every other field is optional, and `kind` is `project` unless written. Package and dependency names are kebab-case (S16).
-- `version` is `major.minor.patch`; `sau` is `major.minor` or `major.minor.patch`; both are whole numbers written bare. `null-format` is a whole number from 1; a format newer than this Cosmósis reads is an error, an older one is migrated (none exists yet). `license` is a quoted string.
-- A dependency names a quoted version requirement (`"^1.2"`, `">=1, <2"`), a `path=` to a folder, or both.
+- `version` is `major.minor.patch`; `sau` is `major.minor` or `major.minor.patch`; both are whole numbers written bare, without leading zeros, as semantic versioning writes them (`0.1.0`, `1.10.2`, never `01.2.3`). `null-format` is a whole number from 1, also without leading zeros; a format newer than this Cosmósis reads is an error, however large the number, and an older one is migrated (none exists yet). `license` is a quoted string.
+- A dependency names a quoted version requirement (`"^1.2"`, `">=1, <2"`), a `path=` to a folder, or both. An empty `path=""` is an error.
 - Any field may be written on the package's line (`package "harbor" null-format=1`), as everywhere in Null.
 - Reading is strict (S24): a field not listed here, a value of the wrong form or a field written twice is an error with a stable code starting `cosmosis-manifest-` and, where one exists, a suggestion.
+- `cosmosis.noll` is a Null file first. Its syntax errors and node names that are not kebab-case are Null's own errors (`null-syntax`, `null-name`), reported before the manifest is read, and the file is not read for fields until they are fixed. A dependency's name is a node's name, so `Trees "^1"` is Null's `null-name`; the package's name is a quoted string, which Cosmósis checks (`cosmosis-manifest-bad-name`).
 
 ## 5. Packages
 

@@ -59,7 +59,8 @@ pub const OUTPUT_FOLDERS: [&str; 1] = ["renders"];
 ///   Code's atomic save);
 /// - holding `.sb-` (macOS's safe save, `x.sb-1a2b3c4d-AbCdEf`), `___jb_` (JetBrains' safe
 ///   write) or `.noll.` (a copy of a Null file under another name, such as `x.noll.saving.noll`);
-/// - a folder macOS makes while saving, `(A Document Being Saved By …)`.
+/// - wholly in parentheses: the folder macOS saves through, `(A Document Being Saved By TextEdit)`
+///   in English and localised in other languages, so it is matched by its shape, not its words.
 pub fn is_ignored(name: &str) -> bool {
     const ENDINGS: [&str; 8] = [
         ".tmp", ".temp", ".bak", ".swp", ".swo", ".swx", ".crswap", ".vsctmp",
@@ -72,7 +73,7 @@ pub fn is_ignored(name: &str) -> bool {
         || name.ends_with('#')
         || ENDINGS.iter().any(|e| lower.ends_with(e))
         || INSIDE.iter().any(|s| lower.contains(s))
-        || name.starts_with("(A Document Being Saved By")
+        || (name.len() > 2 && name.starts_with('(') && name.ends_with(')'))
 }
 
 /// A `.noll` file that is readable UTF-8 text.

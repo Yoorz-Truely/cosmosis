@@ -261,8 +261,8 @@ pub enum ErrorKind {
     },
     /// A `null-format` newer than [`NEWEST_NULL_FORMAT`].
     NewerNullFormat {
-        /// The format.
-        found: u32,
+        /// The format, as written (it may be too large for any integer type).
+        found: String,
     },
     /// A kind that does not exist.
     UnknownKind {
@@ -277,6 +277,11 @@ pub enum ErrorKind {
         field: &'static str,
         /// The value as written.
         found: String,
+    },
+    /// A dependency's `path=""`: quoted, but naming no folder.
+    EmptyPath {
+        /// The dependency.
+        name: String,
     },
     /// A dependency's value of the wrong form.
     DependencyType {
@@ -368,6 +373,7 @@ impl ManifestError {
             UnknownKind { .. } => "cosmosis-manifest-kind",
             BadVersion { .. } => "cosmosis-manifest-version",
             DependencyType { .. } => "cosmosis-manifest-type",
+            EmptyPath { .. } => "cosmosis-manifest-empty-path",
             DependencyBlock { .. } => "cosmosis-manifest-unexpected-block",
             NoSource { .. } => "cosmosis-manifest-dependency-source",
             BadRequirement { .. } => "cosmosis-manifest-requirement",
@@ -418,6 +424,7 @@ impl ManifestError {
                 format!("the dependency `{name}` takes {expected}, not `{found}`")
             }
             DependencyBlock { name } => format!("the dependency `{name}` takes no `{{ }}` block"),
+            EmptyPath { name } => format!("the dependency `{name}` has an empty `path=`"),
             NoSource { name } => {
                 format!("the dependency `{name}` says neither which versions nor where it is")
             }
@@ -489,7 +496,13 @@ impl ManifestError {
             }
             ExtraValue { found, .. } => format!("remove `{found}`"),
             WrongType { field, .. } => format!("write it as {}", example(field)),
-            DependencyType { name, .. } | DependencyBlock { name } => {
+            // An unquoted path: quote it as written, keeping its case.
+            DependencyType { name, found, .. }
+                if found.contains('/') && !found.starts_with('"') && !found.starts_with('[') =>
+            {
+                format!("write it as `{name} path=\"{found}\"`")
+            }
+            DependencyType { name, .. } | DependencyBlock { name } | EmptyPath { name } => {
                 format!("write it as `{name} \"^1.0\"` or `{name} path=\"../{name}\"`")
             }
             BadNullFormat { .. } => format!(
@@ -856,11 +869,16 @@ impl Manifest {
                     match w.parse::<u32>() {
                         Ok(n) if plain && n > NEWEST_NULL_FORMAT => {
                             errors.push(ManifestError::new(
-                                ErrorKind::NewerNullFormat { found: n },
+                                ErrorKind::NewerNullFormat { found: w.into() },
                                 value.span,
                             ));
                         }
                         Ok(n) if plain => self.null_format = n,
+                        // A whole number too large to hold is still newer than this reader.
+                        Err(_) if plain => errors.push(ManifestError::new(
+                            ErrorKind::NewerNullFormat { found: w.into() },
+                            value.span,
+                        )),
                         _ => errors.push(ManifestError::new(
                             ErrorKind::BadNullFormat { found: w.into() },
                             value.span,
@@ -988,8 +1006,12 @@ fn read_dependencies(nodes: &[Node], errors: &mut Vec<ManifestError>) -> Vec<Dep
                 continue;
             }
             match string(&p.value) {
-                Some(s) if !s.is_empty() && dep.path.is_none() => dep.path = Some(s.into()),
-                Some(s) if !s.is_empty() => errors.push(ManifestError::new(
+                Some("") => errors.push(ManifestError::new(
+                    ErrorKind::EmptyPath { name: name.clone() },
+                    p.value.span,
+                )),
+                Some(s) if dep.path.is_none() => dep.path = Some(s.into()),
+                Some(_) => errors.push(ManifestError::new(
                     ErrorKind::RepeatedField {
                         field: format!("{name} path"),
                         first: Span::default(),

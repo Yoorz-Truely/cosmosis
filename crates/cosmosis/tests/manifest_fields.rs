@@ -255,6 +255,16 @@ const CASES: &[(&str, &str, Want)] = &[
     ),
     (
         "dependencies",
+        "  dependencies {\n    trees path=\"\"\n  }\n",
+        Codes(&["cosmosis-manifest-empty-path"]),
+    ),
+    (
+        "null-format",
+        "package \"harbor\" {\n  null-format 99999999999999999999\n}\n",
+        Codes(&["cosmosis-manifest-newer-format"]),
+    ),
+    (
+        "dependencies",
         "  dependencies {\n    trees \"^1\" version=\"2\"\n  }\n",
         Codes(&["cosmosis-manifest-dependency-property"]),
     ),
