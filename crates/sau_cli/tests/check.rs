@@ -120,15 +120,12 @@ fn a_valid_project_passes() {
     assert_eq!(
         text(&out.stdout),
         format!(
-            "sau check: {}: package \"p\" (project, Null format 1): 3 Null files parse, 0 content files\n",
+            "sau check: {}: package \"p\" (project, Null format 1): 3 Null files check, 0 content files\n",
             shown.display()
         )
     );
-    assert!(
-        text(&out.stderr).starts_with("note[cosmosis-no-schema]: "),
-        "{}",
-        text(&out.stderr)
-    );
+    // A clean project says nothing on stderr: the files are parsed and checked.
+    assert_eq!(text(&out.stderr), "");
     // From a folder inside the project, the same root is found.
     let inner = sau(&["check", root.join("objects").to_str().unwrap()]);
     assert_eq!(inner.status.code(), Some(0));

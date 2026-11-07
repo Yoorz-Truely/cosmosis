@@ -40,6 +40,12 @@ Choices made where the spec was silent, recorded in the spec's section 4: only t
 
 **Unverified.** The files are parsed, not checked against Blender's schema (1a-06). Cosmósis builds against Null's and Scowr's main checkouts by path, as they stand: their uncommitted work is in the build too (Null's worker had 1a-06 changes open when this was checked).
 
+## 1a-15: the slice corpus through `sau check`
+
+**What works.** `sau check` now checks what every Null file means, with Null's checker (`null_check`, a new path dependency on Null; with it `serde` and `serde_json`, MIT OR Apache-2.0) against Null's `schema/null-schema.json`, compiled in (`crates/cosmosis/src/schema_check.rs`). All of a project's files are checked together, so a handle defined in one file resolves in another; `cosmosis.noll` is left to the manifest reader. A file the parser already found wrong reports only the parser's errors, as the manifest does, so one mistake gives one error. The six corpus projects pass it whole. The nine errors the checker found in them are fixed: four cubes written `size=[2m 2m 2m]` or `size=[1m 1m 1m]` now have one `size`; two meshes' `faces` are `polygons` (S16, RNA's name); three materials reach `output-material`, which the schema has since 1a-05b. The table keeps its proportions in its object's `scale` as it checks today; it can move to the add operator's `scale` (`primitive cube size=1m scale=[…]`, 1a-05c) once the checker takes it (1a-06b).
+
+**Measured.** `sau check` on each of the six projects exits 0 (7, 6, 6, 2, 8 and 8 Null files checked). `cargo test --workspace`: the corpus test runs `sau check` on every project and fails on any error; the coverage test now looks for `polygons`. `just check` and `just verify` pass.
+
 ## Next
 
 1a-11 to review; then the reviews of 1a-06 and 1a-07, and 1a-15 (the corpus through `sau check`) when it is ready.

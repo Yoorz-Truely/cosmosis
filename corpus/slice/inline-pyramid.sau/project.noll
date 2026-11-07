@@ -1,4 +1,4 @@
-// A mesh written as exact data (Null spec, section 9, level 0): inline vertices and faces,
+// A mesh written as exact data (Null spec, section 9, level 0): inline vertices and polygons,
 // beside a primitive plane for the floor. Slice constructs: mesh (inline and primitive).
 project "Inline Pyramid" {
   units metric scale=1 length=m rotation=deg

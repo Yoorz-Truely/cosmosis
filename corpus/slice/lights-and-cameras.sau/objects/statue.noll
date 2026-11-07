@@ -5,5 +5,5 @@ object @statue "Statue" {
 }
 
 mesh @statue-mesh "Statue" {
-  primitive cube size=[2m 2m 2m]
+  primitive cube size=2m
 }

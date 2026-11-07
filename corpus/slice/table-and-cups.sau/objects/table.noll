@@ -6,5 +6,5 @@ object @table "Table" {
 }
 
 mesh @table-top "TableTop" {
-  primitive cube size=[1m 1m 1m]
+  primitive cube size=1m
 }

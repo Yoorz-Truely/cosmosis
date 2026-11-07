@@ -10,6 +10,8 @@ rust-version.workspace = true
 [dependencies]
 # Null's parser, by path (Sau's boundaries: Cosmósis depends on Null). MIT.
 null_syntax = { path = "../../../Null/compiler/null_syntax" }
+# Null's checker, by path, against the schema Sau generates (task 1a-15). MIT.
+null_check = { path = "../../../Null/compiler/null_check" }
 sha2 = "0.10"
 
 [lints]

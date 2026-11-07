@@ -12,5 +12,5 @@ mesh @pyramid-mesh "Pyramid" {
     [-1m 1m 0m]
     [0m 0m 1.5m]
   ]
-  faces [[0 3 2 1] [0 1 4] [1 2 4] [2 3 4] [3 0 4]]
+  polygons [[0 3 2 1] [0 1 4] [1 2 4] [2 3 4] [3 0 4]]
 }

@@ -8,6 +8,7 @@
 pub mod diagnostic;
 pub mod layout;
 pub mod manifest;
+pub mod schema_check;
 pub mod source;
 pub mod tree;
 

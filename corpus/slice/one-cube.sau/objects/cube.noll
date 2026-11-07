@@ -5,5 +5,5 @@ object @cube "Cube" {
 
 // Used by this object only, so written in its file (Cosmósis spec, section 2).
 mesh @cube-mesh "Cube" {
-  primitive cube size=[2m 2m 2m]
+  primitive cube size=2m
 }

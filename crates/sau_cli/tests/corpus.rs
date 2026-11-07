@@ -1,7 +1,7 @@
-//! The slice corpus drafts in `corpus/slice/` (Sau task C-03, for 1a-15): there are at least
-//! five, each passes `sau check`'s layout stage, and together they write every construct of
-//! phase 1a's slice. Until Null's parser exists the coverage is found in the text, line by
-//! line with comments removed; 1a-15 replaces this with `sau check` reading every file.
+//! The slice corpus in `corpus/slice/` (Sau tasks C-03 and 1a-15): at least five projects, each
+//! passing `sau check` as a whole (manifest, layout, Null's parser and Null's checker against
+//! Blender's schema), and together writing every construct of phase 1a's slice, found by name
+//! in the files' text with comments removed.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -62,7 +62,7 @@ const CONSTRUCTS: [(&str, &[&str], bool); 19] = [
     ("mesh", &["mesh"], true),
     ("mesh as a primitive", &["primitive"], true),
     ("mesh with inline vertices", &["vertices"], true),
-    ("mesh with inline faces", &["faces"], true),
+    ("mesh with inline polygons", &["polygons"], true),
     ("material", &["material"], true),
     ("Principled BSDF", &["principled-bsdf"], false),
     ("base colour", &["base-color"], true),

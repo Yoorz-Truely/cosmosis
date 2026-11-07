@@ -1,10 +1,10 @@
 //! The `sau` command (Cosmósis spec, section 7): project commands without Sau running,
 //! headless commands that start Sau, and actions on the open app through its gateway.
 //!
-//! Built so far: `sau check`, which reads the manifest, checks the layout and parses every
-//! Null file with Null's parser (Sau tasks C-01 and 1a-11); checking the files against
-//! Blender's schema is Null's checker (1a-06). The other commands are listed by `sau --help`
-//! and say they are not built yet.
+//! Built so far: `sau check`, which reads the manifest, checks the layout, parses every Null
+//! file with Null's parser and checks them against Blender's schema with Null's checker (Sau
+//! tasks C-01, 1a-11 and 1a-15). The other commands are listed by `sau --help` and say they are
+//! not built yet.
 //!
 //! Exit status: 0 when the command succeeded, 1 when it found errors, 2 on wrong usage or a
 //! command that is not built yet.
@@ -15,7 +15,7 @@ use std::process::ExitCode;
 use cosmosis::diagnostic::{Diagnostic, nearest};
 use cosmosis::layout;
 use cosmosis::manifest::{MANIFEST_FILE, Manifest};
-use cosmosis::source;
+use cosmosis::{schema_check, source};
 
 /// Every command in the spec: name, what it does, and whether it is built.
 const COMMANDS: [(&str, &str, bool); 15] = [
@@ -86,8 +86,8 @@ The project is the nearest folder, from <path> upwards, holding cosmosis.noll.
 
 Checked: the manifest (cosmosis.noll: its name, null-format and other fields); the layout (the
 root's Null files are files, a project has project.noll, every .noll file is UTF-8 text, media/
-and data/ files are named by their SHA-256); and every Null file's syntax and names, with Null's
-parser. Checking the files against Blender's schema comes with Null's checker.
+and data/ files are named by their SHA-256); every Null file's syntax and names, with Null's
+parser; and what the files mean, with Null's checker against Blender's schema.
 
 Exit status: 0 when no errors were found, 1 when some were, 2 on wrong usage.
 ";
@@ -168,13 +168,26 @@ fn check(args: &[String]) -> ExitCode {
     let found = layout::check(&root, manifest.as_ref().map(|m| m.kind));
     diagnostics.extend(found.diagnostics.iter().cloned());
     // Every other Null file through Null's parser: syntax and kebab-case names.
+    let mut broken = std::collections::HashSet::new();
     for file in found
         .sources
         .iter()
         .filter(|f| f.path != Path::new(MANIFEST_FILE))
     {
-        diagnostics.extend(source::parse(&file.text, &file.path).diagnostics);
+        let parsed = source::parse(&file.text, &file.path);
+        if !parsed.diagnostics.is_empty() {
+            broken.insert(file.path.clone());
+        }
+        diagnostics.extend(parsed.diagnostics);
     }
+    // Then what they mean, with Null's checker against Blender's schema (task 1a-15). Every
+    // file is checked, so handles resolve across files, but a file the parser already found
+    // wrong reports only that, as the manifest does: one mistake, one error.
+    diagnostics.extend(
+        schema_check::check(&found.sources)
+            .into_iter()
+            .filter(|d| d.file.as_ref().is_none_or(|f| !broken.contains(f))),
+    );
     report(&diagnostics);
     let errors = diagnostics.iter().filter(|d| d.is_error()).count();
     if errors > 0 {
@@ -182,15 +195,11 @@ fn check(args: &[String]) -> ExitCode {
         eprintln!("sau check: {errors} error{s} in {}", root.display());
         return ExitCode::FAILURE;
     }
-    report(&[Diagnostic::note(
-        "cosmosis-no-schema",
-        "the files are parsed but not yet checked against Blender's schema: that is Null's checker (Sau task 1a-06)",
-    )]);
     let plural = |n: usize| if n == 1 { "" } else { "s" };
     let (n, c) = (found.sources.len(), found.content_files);
     let m = manifest.expect("no errors means the manifest was read");
     println!(
-        "sau check: {}: package \"{}\" ({}, Null format {}): {n} Null file{} parse, {c} content file{}",
+        "sau check: {}: package \"{}\" ({}, Null format {}): {n} Null file{} check, {c} content file{}",
         root.display(),
         m.name,
         m.kind.as_str(),
