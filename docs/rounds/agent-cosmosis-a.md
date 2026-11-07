@@ -46,6 +46,8 @@ C-01 to C-03 go to review together; then 1a-11 when `just tasks` lists it as rea
 Reviews of the Null worker's tasks are written in Null's report, `~/Projects/Null/docs/rounds/agent-null-a.md`, under "Review".
 
 - 1a-01, November 7, 2026: approved (Null `67e31b1`). Null's `just verify` passed on `34cf222`; Scowr's own tests 192 of 192 at its tip `770a472`, Scowr untouched.
+- 1a-04, November 7, 2026: approved (Null `2c37842`). An independent oracle (Chudnovsky's π, exact rounding) agrees on 9,144 cases, near-tie degrees included; properties pass at 100,000 cases. For the spec: "converted exactly", not "in float64" (no difference for `f32`, 21.5 % of `f64` degree values). For 1a-07: printing in `deg`, `in` and `ft` can drop the unit for `f64` values of 16 or 17 digits.
+- 1a-02, November 7, 2026: approved (Null `427986c`). Lossless on the slice files, this repository's 37 corpus files (no diagnostics either) and 20,000 random mutations; the tests catch a one-byte change. For 1a-06: handles in arguments and enum values are not yet checked for kebab-case. For 1a-03: Scowr's example text (`vel=96`) reaches Null's messages.
 
 ### C-01 to C-03, reviewed by agent/sau-a (November 7, 2026)
 
