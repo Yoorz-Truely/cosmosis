@@ -1,0 +1,7 @@
+object @floor "Floor" {
+  data mesh @floor-mesh
+}
+
+mesh @floor-mesh "Floor" {
+  primitive plane size=10m
+}

@@ -1,0 +1,9 @@
+object @statue "Statue" {
+  location [0m 0m 1m]
+  scale [0.5 0.5 1]
+  data mesh @statue-mesh
+}
+
+mesh @statue-mesh "Statue" {
+  primitive cube size=[2m 2m 2m]
+}

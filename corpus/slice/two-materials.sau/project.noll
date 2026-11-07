@@ -1,0 +1,6 @@
+// Materials: a shared one in materials/ used by two objects, and one used once, written in its
+// object's file. Slice constructs: material (Principled BSDF base colour and roughness).
+project "Two Materials" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}

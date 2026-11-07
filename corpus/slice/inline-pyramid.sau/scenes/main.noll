@@ -1,0 +1,7 @@
+scene @main "Main" {
+  camera @cam
+  object @pyramid
+  object @floor
+  object @cam
+  object @sun
+}

@@ -1,0 +1,9 @@
+scene @main "Main" {
+  camera @cam
+  object @table
+  object @cup-a
+  object @cup-b
+  object @saucer
+  object @cam
+  object @lamp
+}

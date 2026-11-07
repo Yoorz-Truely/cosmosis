@@ -1,0 +1,6 @@
+// The smallest whole scene: one primitive cube, a camera and a light.
+// Slice constructs: scene, object, mesh (primitive), camera, light.
+project "One Cube" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}

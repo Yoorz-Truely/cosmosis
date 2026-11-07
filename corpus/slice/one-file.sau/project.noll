@@ -1,0 +1,70 @@
+// The whole project in one file: the layout is free (S36), and handles are visible
+// project-wide, so nothing needs a folder. Every slice construct appears once.
+project "One File" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}
+
+scene @main "Main" {
+  camera @cam
+  object @base
+  object @top
+  object @cam
+  object @lamp
+}
+
+object @base "Base" {
+  location [0m 0m 0.5m]
+  data mesh @base-mesh
+  material @paint
+}
+
+mesh @base-mesh "Base" {
+  primitive cube size=[1m 1m 1m]
+}
+
+object @top "Top" {
+  parent @base
+  location [0m 0m 0.75m]
+  rotation-euler [0deg 0deg 45deg]
+  scale [0.5 0.5 0.5]
+  data mesh @wedge
+  material @paint
+}
+
+mesh @wedge "Wedge" {
+  vertices [[0m 0m 0m] [1m 0m 0m] [0m 1m 0m] [0m 0m 1m]]
+  faces [[0 2 1] [0 1 3] [1 2 3] [2 0 3]]
+}
+
+material @paint "Paint" {
+  nodes {
+    node @bsdf principled-bsdf {
+      base-color [0.1 0.4 0.8 1]
+      roughness 0.35
+    }
+    node @out output-material {
+      surface @bsdf.bsdf
+    }
+  }
+}
+
+object @cam "Camera" {
+  location [4m -4m 3m]
+  rotation-euler [65deg 0deg 45deg]
+  data camera @cam-lens
+}
+
+camera @cam-lens "Camera" {
+  lens 50mm
+}
+
+object @lamp "Lamp" {
+  location [2m -1m 4m]
+  data light @lamp-light
+}
+
+light @lamp-light "Lamp" {
+  type point
+  energy 600W
+}

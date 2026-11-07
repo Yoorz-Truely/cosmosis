@@ -1,0 +1,23 @@
+// Two cups and a saucer in one file: the layout is free (S36). Children's locations are
+// relative to their parent.
+object @cup-a "Cup A" {
+  parent @table
+  location [20cm -10cm 50mm]
+  rotation-euler [0rad 0rad 0.5rad]
+  data mesh @cup
+}
+
+object @cup-b "Cup B" {
+  parent @table
+  location [-0.3m 0.15m 0.05m]
+  rotation-euler [0 0 -1.25]
+  scale [1 1 1.2]
+  data mesh @cup
+}
+
+object @saucer "Saucer" {
+  parent @cup-b
+  location [0m 0m -1cm]
+  scale [1.5 1.5 0.1]
+  data mesh @cup
+}

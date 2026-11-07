@@ -1,0 +1,4 @@
+package "table-and-cups" {
+  null-format 1
+  license "MIT"
+}

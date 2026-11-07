@@ -1,0 +1,9 @@
+object @lamp "Lamp" {
+  location [1m 1m 2.5m]
+  data light @lamp-light
+}
+
+light @lamp-light "Lamp" {
+  type point
+  energy 250W
+}

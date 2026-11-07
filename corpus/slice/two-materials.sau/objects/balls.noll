@@ -1,0 +1,15 @@
+object @ball-left "Ball Left" {
+  location [-1.2m 0m 0.5m]
+  data mesh @ball
+  material @clay
+}
+
+object @ball-right "Ball Right" {
+  location [1.2m 0m 0.5m]
+  data mesh @ball
+  material @clay
+}
+
+mesh @ball "Ball" {
+  primitive uv-sphere radius=0.5m segments=32 ring-count=16
+}

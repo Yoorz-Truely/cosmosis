@@ -1,0 +1,11 @@
+material @clay "Clay" {
+  nodes {
+    node @bsdf principled-bsdf {
+      base-color [0.8 0.3 0.2 1]
+      roughness 0.7
+    }
+    node @out output-material {
+      surface @bsdf.bsdf
+    }
+  }
+}

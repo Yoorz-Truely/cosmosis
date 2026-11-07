@@ -1,0 +1,7 @@
+// A hierarchy: cups parented to a table, so moving the table moves them. Locations in m, cm and
+// mm; rotations in degrees, radians and bare radians; non-uniform scale.
+// Slice constructs: object location, rotation, scale and parent.
+project "Table and Cups" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}

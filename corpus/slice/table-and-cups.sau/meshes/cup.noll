@@ -1,0 +1,4 @@
+// Shared by three objects, so in its own file.
+mesh @cup "Cup" {
+  primitive cylinder radius=4cm depth=9cm vertices=32
+}

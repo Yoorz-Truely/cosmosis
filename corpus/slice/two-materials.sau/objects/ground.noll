@@ -1,0 +1,21 @@
+object @ground "Ground" {
+  data mesh @ground-mesh
+  material @polished-stone
+}
+
+mesh @ground-mesh "Ground" {
+  primitive plane size=8m
+}
+
+// Used by the ground only, so written here.
+material @polished-stone "Polished Stone" {
+  nodes {
+    node @bsdf principled-bsdf {
+      base-color [0.18 0.18 0.2 1]
+      roughness 0.05
+    }
+    node @out output-material {
+      surface @bsdf.bsdf
+    }
+  }
+}

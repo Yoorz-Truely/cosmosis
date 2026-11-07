@@ -1,0 +1,5 @@
+package "inline-pyramid" {
+  kind project
+  version 0.1.0
+  null-format 1
+}

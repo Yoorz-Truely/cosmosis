@@ -1,0 +1,10 @@
+scene @main "Main" {
+  camera @wide
+  object @statue
+  object @wide
+  object @close
+  object @point
+  object @sun
+  object @spot
+  object @area
+}

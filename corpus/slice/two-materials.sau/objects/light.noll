@@ -1,0 +1,13 @@
+object @light "Area" {
+  location [0m -2m 4m]
+  rotation-euler [30deg 0deg 0deg]
+  data light @area
+}
+
+light @area "Area" {
+  type area
+  shape rectangle
+  size 2m
+  size-y 1m
+  energy 400W
+}

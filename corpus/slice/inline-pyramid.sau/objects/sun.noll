@@ -1,0 +1,9 @@
+object @sun "Sun" {
+  rotation-euler [40deg 0deg 30deg]
+  data light @sun-light
+}
+
+light @sun-light "Sun" {
+  type sun
+  energy 3
+}

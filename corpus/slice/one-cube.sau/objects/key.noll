@@ -1,0 +1,9 @@
+object @key "Key Light" {
+  location [4m 1m 6m]
+  data light @key-light
+}
+
+light @key-light "Key Light" {
+  type point
+  energy 1000W
+}

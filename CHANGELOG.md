@@ -2,5 +2,6 @@
 
 ## Unreleased
 
+- November 7, 2026: the `sau` command's first command, `sau check`, up to the layout stage: it finds a project's root, checks that every `.noll` file is UTF-8 text and that `media/` and `data/` files are named by their SHA-256, and reports diagnostics with stable `cosmosis-` codes (Sau task C-01). The `cosmosis.noll` manifest's data model and every error reading it, from a parser-neutral tree that Null's parser will fill (C-02; spec, section 4). Six draft projects of phase 1a's slice in `corpus/slice/` (C-03).
 - November 7, 2026: renamed from Shoon to Cosmósis, written `cosmosis` where an accent cannot go: `cosmosis.noll`, `cosmosis.lock`, the spec `docs/spec/cosmosis-v0.md`, the folder `~/Projects/Cosmosis`.
 - November 6, 2026: the repository is created. The draft v0 specification moves here from Sau's `docs/SHOON.md`. The name Shoon was chosen by the user.

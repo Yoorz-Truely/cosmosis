@@ -1,0 +1,8 @@
+scene @main "Main" {
+  camera @cam
+  object @ball-left
+  object @ball-right
+  object @ground
+  object @cam
+  object @light
+}

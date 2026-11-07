@@ -1,0 +1,6 @@
+// Every light type (point, sun, spot, area) and two cameras, one of them the scene's.
+// Slice constructs: camera and light.
+project "Lights and Cameras" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}

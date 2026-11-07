@@ -1,0 +1,8 @@
+scene @main "Main" {
+  frame-start 1
+  frame-end 1
+  camera @shot-cam
+  object @cube
+  object @shot-cam
+  object @key
+}
