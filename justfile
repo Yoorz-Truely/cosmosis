@@ -8,7 +8,7 @@ default:
 # The commit gate for code: format, lint, test and the licence gate, through the build guard
 check:
     python3 tools/build-guard.py wait
-    cargo fmt --all --check
+    cargo fmt --check
     cargo clippy --workspace --all-targets --locked -- -D warnings
     cargo test --workspace --locked
     cargo deny --offline check licenses bans sources
@@ -23,7 +23,7 @@ verify:
 
 # Format everything
 fmt:
-    cargo fmt --all
+    cargo fmt
 
 # Install the git hooks for this clone and all its worktrees
 hooks:
