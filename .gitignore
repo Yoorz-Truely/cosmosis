@@ -1,2 +1,4 @@
 target/
 .DS_Store
+# Scratch and the check's records (tools/check-record.py)
+/work/

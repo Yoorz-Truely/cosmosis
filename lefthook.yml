@@ -1,5 +1,6 @@
 # Git hooks. Install once per clone with `just hooks`; every worktree shares them.
-# Pre-commit checks only staged files; `just check` still gates every code commit.
+# Pre-commit checks only staged files; a code commit needs a passing `just check` on its very
+# tree (job `checked`).
 output:
   - failure
   - summary
@@ -24,6 +25,10 @@ pre-commit:
 
     - name: secrets
       run: gitleaks git --staged --no-banner --redact .
+
+    # Code is committed only on a tree `just check` passed on (tools/check-record.py, task 0-10).
+    - name: checked
+      run: python3 tools/check-record.py require
 
 commit-msg:
   skip:
