@@ -1,0 +1,33 @@
+# Git hooks. Install once per clone with `just hooks`; every worktree shares them.
+# Pre-commit checks only staged files; `just check` still gates every code commit.
+output:
+  - failure
+  - summary
+
+pre-commit:
+  parallel: true
+  skip:
+    - merge
+  jobs:
+    - name: rust-format
+      glob: "*.rs"
+      run: rustfmt --edition 2024 {staged_files}
+      stage_fixed: true
+
+    - name: toml
+      glob: "*.toml"
+      run: taplo fmt {staged_files}
+      stage_fixed: true
+
+    - name: spelling
+      run: typos --force-exclude {staged_files}
+
+    - name: secrets
+      run: gitleaks git --staged --no-banner --redact .
+
+commit-msg:
+  skip:
+    - merge
+  jobs:
+    - name: message
+      run: python3 tools/commit-msg.py {1}
