@@ -6,8 +6,10 @@ ran on in `work/check/passed`, but only if the files did not change while it ran
 commit-msg hook calls `require`: by then pre-commit's fixers have re-staged what they changed,
 so the index is what will be committed. It refuses a commit that touches code unless its staged
 tree has such a record. "The tree" is every file that is not ignored, as `git add -A` would
-stage it, tracked or not; documents may differ from it, code may not. Merges (a MERGE_HEAD
-naming a commit that is not HEAD or its ancestor) and documents-only commits need no record.
+stage it, tracked or not; documents may differ from it, code may not. A merge Git made by itself
+(MERGE_HEAD one commit, not HEAD or its ancestor, merging with no conflict, the staged code
+exactly that merge's) and documents-only commits need no record; a conflict resolved by hand
+needs `just check` like any commit.
 
 Not code: `*.md` and everything under `docs/`; in Null and Cosmósis also images (`.png`, `.jpg`,
 `.jpeg`, `.gif`, `.svg`, `.webp`). Sau builds its branding images into the app, so there they
@@ -106,31 +108,39 @@ def passed(key, cwd=None, quiet=False):
     return 0
 
 
-def is_real_merge(git_dir, cwd=None):
-    """Whether this commit merges work in: every commit MERGE_HEAD names exists and is not HEAD
-    or one of HEAD's ancestors. A MERGE_HEAD written by hand to name HEAD or an older commit of
-    this branch merges nothing, so it exempts nothing."""
+def is_clean_merge(git_dir, sau, cwd=None):
+    """Whether this commit is a merge Git made by itself, which brings only commits checked on
+    their own branches: MERGE_HEAD names one commit that is not HEAD or one of its ancestors,
+    `git merge-tree` merges it into HEAD with no conflict, and the staged code is exactly that
+    merge's (documents may differ). A MERGE_HEAD written by hand, a conflict resolved by hand
+    or any other code changed in the merge is not exempt: it needs `just check` like any
+    commit."""
     merge_head = git_dir / "MERGE_HEAD"
     if not merge_head.exists():
         return False
     heads = merge_head.read_text().split()
-    if not heads:
+    if len(heads) != 1:
+        return False  # an octopus merge is checked like any commit
+    theirs = git("rev-parse", "--verify", "-q", heads[0] + "^{commit}", cwd=cwd, check=False).strip()
+    if not theirs:
         return False
-    for h in heads:
-        theirs = git("rev-parse", "--verify", "-q", h + "^{commit}", cwd=cwd, check=False).strip()
-        if not theirs:
-            return False
-        ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", theirs, "HEAD"], cwd=cwd, capture_output=True)
-        if ancestor.returncode == 0:
-            return False
-    return True
+    ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", theirs, "HEAD"], cwd=cwd, capture_output=True)
+    if ancestor.returncode == 0:
+        return False
+    merged = subprocess.run(["git", "merge-tree", "--write-tree", "HEAD", theirs], cwd=cwd, capture_output=True, text=True)
+    if merged.returncode != 0:
+        return False  # a conflict: its resolution was written by hand
+    result = merged.stdout.split()[0]
+    staged = git("write-tree", cwd=cwd).strip()
+    differ = [p for p in git("diff", "--name-only", "-z", result, staged, cwd=cwd).split("\0") if p]
+    return not any(is_code(p, sau) for p in differ)
 
 
 def require(cwd=None):
     root = top(cwd)
     git_dir = pathlib.Path(git("rev-parse", "--path-format=absolute", "--git-dir", cwd=cwd).strip())
-    if is_real_merge(git_dir, cwd):
-        return 0  # a merge brings commits that were checked on their own branches
+    if is_clean_merge(git_dir, is_sau(root), cwd):
+        return 0  # Git's own merge of commits checked on their own branches
     staged = [p for p in git("diff", "--cached", "--name-only", "-z", cwd=cwd).split("\0") if p]
     sau = is_sau(root)
     code = [p for p in staged if is_code(p, sau)]
@@ -257,7 +267,9 @@ def scenario(sau, me, expect):
         commit("main")
         subprocess.run(["git", "merge", "-q", "side"], cwd=repo, capture_output=True)
         src.write_text("fn merged() {}\n")
-        expect(f"{tag}: a merge resolved by hand", commit("merge"), True)
+        expect(f"{tag}: a conflict resolved by hand, with no check", commit("merge"), False)
+        check()
+        expect(f"{tag}: the same resolution after a check", commit("merge"), True)
         # A MERGE_HEAD written by hand, naming HEAD itself, exempts nothing.
         src.write_text("fn not_a_merge() {}\n")
         head = run("rev-parse", "HEAD").strip()
@@ -330,6 +342,32 @@ def fixer_order(me, expect):
         commit("main")
         r = subprocess.run(["git", "merge", "-q", "--no-ff", "-m", "Merge side", "side"], cwd=repo, capture_output=True, text=True)
         expect("lefthook: a real merge, with no check of its own", r.returncode == 0, True)
+        # A MERGE_HEAD naming another branch's tip, with other code staged than that merge's.
+        run("checkout", "-q", "-b", "other")
+        (repo / "other.rs").write_text("fn other() {}\n")
+        checked()
+        commit("other")
+        run("checkout", "-q", "main")
+        (git_dir / "MERGE_HEAD").write_text(run("rev-parse", "other"))
+        (repo / "sneaked.rs").write_text("fn unchecked() {}\n")
+        expect("lefthook: unchecked code with a MERGE_HEAD of another branch's tip", commit("fake merge"), False)
+        (git_dir / "MERGE_HEAD").unlink()
+        run("reset", "-q", "--hard")
+        (repo / "sneaked.rs").unlink(missing_ok=True)
+        # A conflict resolved by hand, as `just sync` can leave one: refused until checked.
+        run("checkout", "-q", "-b", "theirs")
+        (repo / "src.rs").write_text("fn theirs() {}\n")
+        checked()
+        commit("theirs")
+        run("checkout", "-q", "main")
+        (repo / "src.rs").write_text("fn ours() {}\n")
+        checked()
+        commit("ours")
+        subprocess.run(["git", "merge", "-q", "theirs"], cwd=repo, capture_output=True)
+        (repo / "src.rs").write_text("fn resolved_by_hand() {}\n")
+        expect("lefthook: a conflict resolved by hand, with no check", commit("resolve"), False)
+        checked()
+        expect("lefthook: the same resolution after a check", commit("resolve"), True)
 
 
 def selftest():
