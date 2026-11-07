@@ -188,21 +188,44 @@ pub fn check(root: &Path, kind: Option<Kind>) -> Layout {
         );
     }
     walk(root, Path::new(""), &mut layout);
-    // `.sau/` is a cache and skipped as hidden, but for the ID map, which is source (S66).
-    let ids = root.join(IDS_FILE);
-    if ids.is_dir() {
+    // `.sau/` is a cache and skipped as hidden, but for the ID map, which is source (S66). A
+    // `.sau` that is a link to a folder is not followed, as no link to a folder is: the map read
+    // through it could be another project's.
+    let cache = root.join(".sau");
+    if cache
+        .symlink_metadata()
+        .is_ok_and(|m| m.file_type().is_symlink())
+    {
         layout.diagnostics.push(
-            Diagnostic::error(
-                "cosmosis-layout-not-a-file",
-                format!("{IDS_FILE} is a folder, not a file"),
+            Diagnostic::note(
+                "cosmosis-layout-link",
+                format!("a link to a folder is not followed, so {IDS_FILE} is not read"),
             )
-            .in_file(IDS_FILE)
-            .with_help(format!(
-                "{IDS_FILE} is the project's map of handles to persistent IDs, a Null file; rename the folder"
-            )),
+            .in_file(".sau"),
         );
-    } else if ids.exists() {
-        source(&ids, PathBuf::from(IDS_FILE), &mut layout);
+    } else {
+        let ids = root.join(IDS_FILE);
+        if ids.symlink_metadata().is_ok() {
+            match fs::metadata(&ids) {
+                // A link to nothing: as anywhere else, an error; here the more so, since losing
+                // the map gives every datablock a new identity on the next load (S61 (2)).
+                Err(_) => layout.diagnostics.push(
+                    Diagnostic::error("cosmosis-io", "cannot read the file: it is a broken link")
+                        .in_file(IDS_FILE),
+                ),
+                Ok(m) if m.is_dir() => layout.diagnostics.push(
+                    Diagnostic::error(
+                        "cosmosis-layout-not-a-file",
+                        format!("{IDS_FILE} is a folder, not a file"),
+                    )
+                    .in_file(IDS_FILE)
+                    .with_help(format!(
+                        "{IDS_FILE} is the project's map of handles to persistent IDs, a Null file; rename the folder"
+                    )),
+                ),
+                Ok(_) => source(&ids, PathBuf::from(IDS_FILE), &mut layout),
+            }
+        }
     }
     layout
 }
