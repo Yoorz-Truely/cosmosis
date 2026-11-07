@@ -50,6 +50,8 @@ Reviews of the Null worker's tasks are written in Null's report, `~/Projects/Nul
 - 1a-02, November 7, 2026: approved (Null `427986c`). Lossless on the slice files, this repository's 37 corpus files (no diagnostics either) and 20,000 random mutations; the tests catch a one-byte change. For 1a-06: handles in arguments and enum values are not yet checked for kebab-case. For 1a-03: Scowr's example text (`vel=96`) reaches Null's messages.
 - 1a-08, 1a-05 and 0-05 (Sau's worker), November 7, 2026: written in `Sau/docs/rounds/agent-sau-a.md` on `agent/sau-a` (Sau `20b296c`). 1a-08 and 0-05 approved; 1a-05 sent back (`MeshPolygon.vertices` listed as a fixed array of 3; a scene's objects missing; four Blender deprecation sentences in Null's MIT file).
 
+- 1a-03, November 7, 2026: sent back (Null `ff7bd48`). A fuzz run with a larger input limit crashed on a false alarm in the shared invariants (the ban on Scowr's `vel=` example fires on a user's `level=`); the depth messages are pinned by no test; fuzzing never tried inputs over 583 bytes. The S59 spec edit matches S59.
+
 ### 0-03, the agent environment (the lead's), November 7, 2026: sent back
 
 Checked against its "Done when" as its note amends it (the cache measurement moved to 0-05): the board, guides, recipes, hooks, guards, `check` and `verify` work in all three repositories.
