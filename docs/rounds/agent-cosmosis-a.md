@@ -48,6 +48,29 @@ Reviews of the Null worker's tasks are written in Null's report, `~/Projects/Nul
 - 1a-01, November 7, 2026: approved (Null `67e31b1`). Null's `just verify` passed on `34cf222`; Scowr's own tests 192 of 192 at its tip `770a472`, Scowr untouched.
 - 1a-04, November 7, 2026: approved (Null `2c37842`). An independent oracle (Chudnovsky's π, exact rounding) agrees on 9,144 cases, near-tie degrees included; properties pass at 100,000 cases. For the spec: "converted exactly", not "in float64" (no difference for `f32`, 21.5 % of `f64` degree values). For 1a-07: printing in `deg`, `in` and `ft` can drop the unit for `f64` values of 16 or 17 digits.
 - 1a-02, November 7, 2026: approved (Null `427986c`). Lossless on the slice files, this repository's 37 corpus files (no diagnostics either) and 20,000 random mutations; the tests catch a one-byte change. For 1a-06: handles in arguments and enum values are not yet checked for kebab-case. For 1a-03: Scowr's example text (`vel=96`) reaches Null's messages.
+- 1a-08, 1a-05 and 0-05 (Sau's worker), November 7, 2026: written in `Sau/docs/rounds/agent-sau-a.md` on `agent/sau-a` (Sau `20b296c`). 1a-08 and 0-05 approved; 1a-05 sent back (`MeshPolygon.vertices` listed as a fixed array of 3; a scene's objects missing; four Blender deprecation sentences in Null's MIT file).
+
+### 0-03, the agent environment (the lead's), November 7, 2026: sent back
+
+Checked against its "Done when" as its note amends it (the cache measurement moved to 0-05): the board, guides, recipes, hooks, guards, `check` and `verify` work in all three repositories.
+
+**Works, measured.**
+
+- The board: I added rows, claimed, put in review and approved through `just task` and `dev.py task` this session; each commit landed on `main` alone. A note with spaces now reaches the tool as one argument (`just task note NO-SUCH-TASK --note "two words here"` gets as far as "no task").
+- Hooks are installed in all three (Sau: pre-commit, commit-msg and four more; Null and Cosmósis: pre-commit, commit-msg), and they bite: the spelling hook stopped a Cosmósis commit of mine until the deliberate misspellings were listed in `_typos.toml`.
+- The repository guard, tested on staged files in a throwaway `git clone --shared` of `main` (sparse, in my scratchpad): it refuses a file under `work/`, a `.DS_Store`, a 5 MB file not in LFS (`.txt`, `.py`; LFS types pass), conflict markers, invalid JSON, a new Markdown file outside its home, a Blender file changed without `Sau:`, and `docs/TASKS.md` staged in a worktree; it allows a report in `docs/rounds/`, a Blender change marked `Sau:`, and the board on `main`.
+- The build guard: rustc runs through it in Sau, Null and Cosmósis; it held compiles to 2 slots at heavy thermal pressure while I worked, and `just check` waited for heavy pressure to clear.
+- `check` and `verify`: Cosmósis's both pass at `8361404` and `ba96e96`; Null's `just verify` passed on exact copies of `34cf222`, `65c6ea7` and `0edf8f4`; Sau's `just verify` passed in `work/wt/sau-a` at `3d709a3` (105 s), running Null's verify for the sibling worktree and skipping the Cosmósis link, as the S58 rules say. `just doctor` reports every tool and hook as present.
+
+**To fix.**
+
+1. **`just task note` replaces a task's notes instead of adding to them** (`if note: r["notes"] = note` in `dev.py`). A note after an approval erases "approved by …", which `just integrate` looks for, so the task silently stops being approved; a send-back note erases the author's commit and evidence. I kept them by hand in my notes on 1a-05 and on this task. Append, as `approve` does.
+
+**Also found.**
+
+- Cosmósis's `AGENTS.md` still told agents to work in a worktree, never on `main`, against S58; fixed in Cosmósis `fcee297`.
+- The nightly run has never run (`just doctor`: "last nightly: never run") and is not scheduled; `just nightly-install` is a standing job, so it waits for the user's word. Unverified.
+- Blender's tests in `verify` wait for the developer build (V-01), as the task's note says.
 
 ### C-01 to C-03, reviewed by agent/sau-a (November 7, 2026)
 
