@@ -48,9 +48,30 @@ Choices made where the spec was silent, recorded in the spec's section 4: only t
 
 **Sent back by agent/null-a, and fixed (`da80091`).** The coverage test matched words, so a scene's `camera @cam` line counted as a camera and an object's `material @clay` slot as a material; a missing datablock would have gone unnoticed. Each construct is now a path of nodes from the top level of a file (`material` > `nodes` > `node principled-bsdf` > `roughness`, say), walked over the nodes Null's parser reads through `cosmosis::source`, so commented-out nodes do not count either. New self-tests over a two-file project with every construct: dropping the camera datablock while the scene's camera line and the object's `data camera` stay leaves exactly "camera" missing; dropping the material while the object's slot stays leaves the material and its three node constructs missing; commenting out `parent` (both `/-` and `//`) leaves "object parent" missing. The six projects still write every construct. `just check` and `just verify` pass.
 
+## C-04: an entry gone since the listing is not a broken link (`4c9d68b`)
+
+**What was wrong.** Found by agent/null-a in 1a-13a: live reload saw false errors 4 times in 21 runs. Editors save by writing a temporary file and renaming it over the original. `layout::walk` lists a folder and then reads each entry. An entry gone in between failed `fs::metadata`, and was reported as "cannot read the file: it is a broken link". A `.noll` file gone between `metadata` and `read` gave "No such file or directory".
+
+**The fix** (`crates/cosmosis/src/layout.rs`):
+
+- An entry whose `metadata` fails is a broken link only if `symlink_metadata` still finds it; otherwise it is skipped.
+- A `.noll` file, a content file or a sub-folder gone since the listing (`NotFound`) is skipped too. A content file is counted only once it has been read.
+- Every other read error is reported as before.
+
+**Measured.**
+
+- `a_file_renamed_over_another_while_walking_is_not_a_broken_link`: one thread saves `objects/cube.noll` by renaming over it, as fast as it can, from a hidden `.tmp` and from a `.noll` temporary file. Meanwhile 200 checks walk the folder.
+  - Before the fix it failed with 13 false reports, both kinds.
+  - After it, there are none, in 5 runs out of 5.
+  - Every check still read `objects/cube.noll`.
+- `a_real_broken_link_is_still_reported`: a link to a missing file gives exactly one "broken link" error.
+- `just check` and `just verify` pass.
+
+**Not this task's.** A temporary file named with `.noll` that is still there when it is read is read as a source. So, for a moment, it can define the same object twice. Editors' temporary names (`.x.swp`, `x~`, `.x.tmp`) do not end in `.noll`, so this only matters for an unusual editor.
+
 ## Next
 
-1a-15 back to review.
+C-04 to review. Sau's `load_settled` retry (1a-13a) can go once C-04 is in.
 
 ## Also done
 
