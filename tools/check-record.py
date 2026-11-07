@@ -65,7 +65,9 @@ def working_tree(cwd=None):
     with tempfile.TemporaryDirectory() as d:
         tmp = pathlib.Path(d) / "index"
         if index.exists():
-            shutil.copyfile(index, tmp)
+            # copy2 keeps the index's mtime, so Git still re-reads files changed in the same
+            # second as the index was written ("racily clean" entries); a fresh mtime would hide them.
+            shutil.copy2(index, tmp)
         env = dict(os.environ, GIT_INDEX_FILE=str(tmp))
         git("add", "-A", ".", cwd=top(cwd), env=env)
         return git("write-tree", cwd=cwd, env=env).strip()
