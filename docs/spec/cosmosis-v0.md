@@ -91,6 +91,14 @@ package "harbor-at-dusk" {
 
 The manifest pins the Sau version and Null format a project was written for, so an older project opens with a migration rather than a surprise.
 
+How it is read (November 7, 2026, Sau task C-02; `crates/cosmosis/src/manifest.rs`):
+
+- The name, the quoted string after `package`, and `null-format` are required: they are all a manifest needs (S37, S45). Every other field is optional, and `kind` is `project` unless written. Package and dependency names are kebab-case (S16).
+- `version` is `major.minor.patch`; `sau` is `major.minor` or `major.minor.patch`; both are whole numbers written bare. `null-format` is a whole number from 1; a format newer than this Cosmósis reads is an error, an older one is migrated (none exists yet). `license` is a quoted string.
+- A dependency names a quoted version requirement (`"^1.2"`, `">=1, <2"`), a `path=` to a folder, or both.
+- Any field may be written on the package's line (`package "harbor" null-format=1`), as everywhere in Null.
+- Reading is strict (S24): a field not listed here, a value of the wrong form or a field written twice is an error with a stable code starting `cosmosis-manifest-` and, where one exists, a suggestion.
+
 ## 5. Packages
 
 A package is a Cosmósis project of another kind, with a manifest, versions, and a licence report. Packages come from folders, Git repositories and, later, the registry, **Genesis-Preim** (named by the user on November 6, 2026), used through `preim` commands as npm is beside Next.js: `preim add <package>` adds one and updates the lockfile, `preim search` and `preim publish` find and share them; handles from it are addressed as `@package:handle` (Null, section 7). Blender's own asset libraries and the Essentials bundle convert into packages with `sau convert`. Blender add-ons stay Blender extensions and are not Cosmósis packages.

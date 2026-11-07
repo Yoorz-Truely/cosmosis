@@ -1,6 +1,6 @@
 [package]
 name = "sau_cli"
-description = "The sau command (not built yet)"
+description = "The sau command"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,3 +13,6 @@ path = "src/main.rs"
 
 [lints]
 workspace = true
+
+[dependencies]
+cosmosis = { path = "../cosmosis" }

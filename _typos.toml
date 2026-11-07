@@ -1,0 +1,7 @@
+# Exceptions for the spelling hook. Each word is a deliberate misspelling in a test of the
+# suggestions Cosmósis makes, such as "did you mean `material`?".
+[default.extend-words]
+chek = "chek"
+materal = "materal"
+pakage = "pakage"
+vresion = "vresion"
