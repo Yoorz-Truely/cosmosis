@@ -46,6 +46,35 @@ pub const CONTENT_FOLDERS: [&str; 2] = ["media", "data"];
 /// Output folders at the root that are not source.
 pub const OUTPUT_FOLDERS: [&str; 1] = ["renders"];
 
+/// Whether `name` is an editor's or the system's own file, not the project's (task C-05): hidden
+/// or temporary, so a project ignores it even when it ends in `.noll`. Editors save by writing a
+/// temporary file and renaming it over the original, and a check that reads the temporary file
+/// before the rename would see every datablock in it defined twice. The names (Cosmósis spec,
+/// section 2, "Ignored names"):
+///
+/// - starting with `.` (hidden: `.DS_Store`, macOS's `._x`, Vim's `.x.swp`, Emacs's `.#x`) or
+///   `~` (`~$x`, `~x`);
+/// - ending in `~` (backups) or `#` (Emacs's `#x#`);
+/// - ending in `.tmp`, `.temp`, `.bak`, `.swp`, `.swo`, `.swx`, `.crswap` or `.vsctmp` (VS
+///   Code's atomic save);
+/// - holding `.sb-` (macOS's safe save, `x.sb-1a2b3c4d-AbCdEf`), `___jb_` (JetBrains' safe
+///   write) or `.noll.` (a copy of a Null file under another name, such as `x.noll.saving.noll`);
+/// - a folder macOS makes while saving, `(A Document Being Saved By …)`.
+pub fn is_ignored(name: &str) -> bool {
+    const ENDINGS: [&str; 8] = [
+        ".tmp", ".temp", ".bak", ".swp", ".swo", ".swx", ".crswap", ".vsctmp",
+    ];
+    const INSIDE: [&str; 3] = [".sb-", "___jb_", ".noll."];
+    let lower = name.to_ascii_lowercase();
+    name.starts_with('.')
+        || name.starts_with('~')
+        || name.ends_with('~')
+        || name.ends_with('#')
+        || ENDINGS.iter().any(|e| lower.ends_with(e))
+        || INSIDE.iter().any(|s| lower.contains(s))
+        || name.starts_with("(A Document Being Saved By")
+}
+
 /// A `.noll` file that is readable UTF-8 text.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SourceFile {
@@ -167,6 +196,10 @@ fn entries(dir: &Path, rel: &Path, layout: &mut Layout) -> Vec<fs::DirEntry> {
 fn walk(dir: &Path, rel: &Path, layout: &mut Layout) {
     for entry in entries(dir, rel, layout) {
         let name = entry.file_name().to_string_lossy().into_owned();
+        // An editor's or the system's file, even one ending in `.noll` (task C-05).
+        if is_ignored(&name) {
+            continue;
+        }
         let path = entry.path();
         let rel_path = rel.join(&name);
         let at_root = rel.as_os_str().is_empty();
@@ -184,7 +217,7 @@ fn walk(dir: &Path, rel: &Path, layout: &mut Layout) {
         };
         let is_link = entry.file_type().is_ok_and(|t| t.is_symlink());
         if meta.is_dir() {
-            if name.starts_with('.') || (at_root && OUTPUT_FOLDERS.contains(&name.as_str())) {
+            if at_root && OUTPUT_FOLDERS.contains(&name.as_str()) {
                 continue;
             }
             if at_root && ROOT_FILES.contains(&name.as_str()) {
@@ -249,7 +282,7 @@ fn source(path: &Path, rel: PathBuf, layout: &mut Layout) {
 fn content(dir: &Path, rel: &Path, layout: &mut Layout) {
     for entry in entries(dir, rel, layout) {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if name.starts_with('.') {
+        if is_ignored(&name) {
             continue;
         }
         let rel_path = rel.join(&name);

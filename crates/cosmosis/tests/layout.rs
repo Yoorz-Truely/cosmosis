@@ -321,3 +321,127 @@ fn a_real_broken_link_is_still_reported() {
         "{found:?}"
     );
 }
+
+/// Editors' and the system's files are not the project's, even ending in `.noll` (task C-05).
+#[test]
+fn editors_and_system_files_are_ignored_even_ending_in_noll() {
+    let root = project("ignored");
+    let again = b"object @cube \"Cube\" {}\n";
+    let ignored = [
+        "objects/.cube.noll",
+        "objects/._cube.noll",
+        "objects/.#cube.noll",
+        "objects/~cube.noll",
+        "objects/~$cube.noll",
+        "objects/cube.noll~",
+        "objects/#cube.noll#",
+        "objects/cube.noll.tmp",
+        "objects/cube.noll.swp",
+        "objects/cube.noll.vsctmp",
+        "objects/cube.noll.saving.noll",
+        "objects/cube.noll.sb-1a2b3c4d-AbCdEf",
+        "objects/cube.sb-1a2b3c4d-AbCdEf.noll",
+        "objects/cube.noll___jb_tmp___",
+        "objects/(A Document Being Saved By TextEdit)/cube.noll",
+        "objects/.hidden/cube.noll",
+    ];
+    for name in ignored {
+        write(&root, &[(name, again)]);
+    }
+    let l = layout::check(&root, Some(Kind::Project));
+    assert!(l.diagnostics.is_empty(), "{:?}", l.diagnostics);
+    let mut paths: Vec<_> = l
+        .sources
+        .iter()
+        .map(|s| s.path.to_string_lossy().into_owned())
+        .collect();
+    paths.sort();
+    assert_eq!(
+        paths,
+        [
+            "cosmosis.noll",
+            "objects/cube.noll",
+            "project.noll",
+            "scenes/main.noll"
+        ]
+        .map(String::from)
+    );
+}
+
+#[test]
+fn ordinary_names_are_not_ignored() {
+    for name in [
+        "cube.noll",
+        "pier-2.noll",
+        "my.cube.noll",
+        "tmp.noll",
+        "swap.noll",
+        "bak",
+        "café.noll",
+    ] {
+        assert!(!layout::is_ignored(name), "{name}");
+    }
+}
+
+/// The C-04 review's stress, as C-05's row asks: 300 checks of a corpus project, manifest to
+/// Null's checker, while another thread saves its object by renaming over it from three
+/// temporary names, one ending in `.noll`. No check may report anything.
+#[test]
+fn checks_during_saves_by_rename_report_nothing() {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+
+    let corpus = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/slice/one-cube.sau");
+    let root = folder("one-cube-saving");
+    copy_tree(&corpus, &root);
+    let cube = root.join("objects/cube.noll");
+    let text = fs::read_to_string(&cube).unwrap();
+    let stop = Arc::new(AtomicBool::new(false));
+    let saver = {
+        let (root, stop, text) = (root.clone(), Arc::clone(&stop), text.clone());
+        std::thread::spawn(move || {
+            let mut n = 0u64;
+            while !stop.load(Ordering::Relaxed) {
+                for temp in ["cube.noll.saving.noll", ".cube.noll.tmp", "cube.noll~"] {
+                    let path = root.join("objects").join(temp);
+                    fs::write(&path, &text).unwrap();
+                    fs::rename(&path, root.join("objects/cube.noll")).unwrap();
+                    n += 1;
+                }
+            }
+            n
+        })
+    };
+    let mut wrong = Vec::new();
+    for _ in 0..300 {
+        let l = layout::check(&root, Some(Kind::Project));
+        wrong.extend(l.diagnostics.iter().map(ToString::to_string));
+        wrong.extend(
+            cosmosis::schema_check::check(&l.sources)
+                .iter()
+                .map(ToString::to_string),
+        );
+    }
+    stop.store(true, Ordering::Relaxed);
+    let saves = saver.join().unwrap();
+    assert!(saves > 0);
+    assert!(
+        wrong.is_empty(),
+        "{} reports over 300 checks ({saves} saves): {:?}",
+        wrong.len(),
+        &wrong[..wrong.len().min(3)]
+    );
+}
+
+fn copy_tree(from: &Path, to: &Path) {
+    for e in fs::read_dir(from).unwrap() {
+        let e = e.unwrap();
+        let target = to.join(e.file_name());
+        if e.path().is_dir() {
+            fs::create_dir_all(&target).unwrap();
+            copy_tree(&e.path(), &target);
+        } else {
+            fs::copy(e.path(), target).unwrap();
+        }
+    }
+}

@@ -54,6 +54,18 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
 - **One datablock, one place.** A handle is defined once in the project. Defining it twice is an error that names both files.
 - **`view.noll`** holds interface state an AI may read and edit (which camera the viewport looks through, what is selected, which files are open) and is not in Git.
 
+### Ignored names
+
+A project ignores files and folders that editors and the system make beside its own, even when their names end in `.noll`. Editors save by writing a temporary file and renaming it over the original; a check that read the temporary file would see its datablocks defined twice. Ignored are names:
+
+- starting with `.` (hidden: `.DS_Store`, macOS's `._x`, Vim's `.x.swp`, Emacs's `.#x`, `.sau/`) or with `~` (`~$x`, `~x`);
+- ending in `~` (backups) or `#` (Emacs's `#x#`);
+- ending in `.tmp`, `.temp`, `.bak`, `.swp`, `.swo`, `.swx`, `.crswap` or `.vsctmp` (VS Code's atomic save), in any case;
+- holding `.sb-` (macOS's safe save, `x.sb-1a2b3c4d-AbCdEf`), `___jb_` (JetBrains' safe write) or `.noll.` (a copy of a Null file under another name, such as `x.noll.saving.noll`);
+- of a folder macOS makes while saving, `(A Document Being Saved By …)`.
+
+So a project's own files are never named so. An entry that disappears between a folder's listing and its reading is skipped too, as a temporary file renamed away has (task C-04).
+
 ### Version control
 
 - Every file except `.sau/`, `view.noll` and `renders/` is source and belongs in Git. Cosmósis writes a `.gitignore` saying so.
