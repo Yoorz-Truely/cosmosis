@@ -53,6 +53,10 @@ fn files(root: &Path, dir: &Path, out: &mut Vec<(PathBuf, String)>) {
     out.sort();
 }
 
+fn copy_dir(from: &Path, to: &Path) {
+    copy(from, to);
+}
+
 fn copy(from: &Path, to: &Path) {
     fs::create_dir_all(to).unwrap();
     for e in fs::read_dir(from).unwrap() {
@@ -358,6 +362,70 @@ fn the_block_of_sub_objects_of_a_map_entry_survives_a_rename() {
         "{ids}"
     );
     let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn every_state_a_running_sau_can_load_between_the_renames_is_safe() {
+    // 1b-01h round 3: `sau rename` replaces the map first, then the files in their paths'
+    // order, and a running Sau may load between any two. With the map at the new handle and
+    // the files at the old one, apply keeps the datablock (the old handle still defines it);
+    // with the files partly renamed, the project fails the check, so nothing is applied. Only
+    // the first and the last state check clean, and no state has every file renamed with the
+    // map still at the old handle.
+    let (dir, _) = fresh("states");
+    let defs = definitions(&dir);
+    fs::create_dir_all(dir.join(".sau")).unwrap();
+    fs::write(dir.join(".sau/ids.noll"), map(&defs)).unwrap();
+    let mut before = Vec::new();
+    files(&dir, &dir, &mut before);
+    // A handle named in more than one file, so there are states in between.
+    let (old, renamed_dir, after) = defs
+        .iter()
+        .find_map(|(_, old, _)| {
+            let copy = dir.with_extension(format!("try{}", &old[1..]));
+            let _ = fs::remove_dir_all(&copy);
+            copy_dir(&dir, &copy);
+            let out = sau(&["rename", old, "@renamed-here", copy.to_str().unwrap()]);
+            assert!(out.status.success(), "{}", text(&out.stderr));
+            let mut after = Vec::new();
+            files(&copy, &copy, &mut after);
+            let changed = before
+                .iter()
+                .zip(&after)
+                .filter(|(b, a)| b != a && !b.0.ends_with("ids.noll"))
+                .count();
+            (changed > 1).then(|| (old.clone(), copy, after))
+        })
+        .expect("a handle named in two files");
+    let map_after = after.iter().find(|(p, _)| p.ends_with("ids.noll")).unwrap();
+    let file_order: Vec<usize> = (0..before.len())
+        .filter(|&i| before[i] != after[i] && !before[i].0.ends_with("ids.noll"))
+        .collect();
+    // The states in the order `sau rename` makes them: the map, then each file by path.
+    let state_dir = dir.with_extension("state");
+    for k in 0..=file_order.len() {
+        let _ = fs::remove_dir_all(&state_dir);
+        copy_dir(&dir, &state_dir);
+        fs::write(state_dir.join(&map_after.0), &map_after.1).unwrap();
+        for &i in &file_order[..k] {
+            fs::write(state_dir.join(&after[i].0), &after[i].1).unwrap();
+        }
+        let check = sau(&["check", state_dir.to_str().unwrap()]);
+        let first_or_last = k == 0 || k == file_order.len();
+        if !first_or_last {
+            assert!(
+                !check.status.success(),
+                "{old}: {k} of {} files renamed checks clean, so a running Sau would apply it",
+                file_order.len()
+            );
+        }
+        if k == file_order.len() {
+            assert!(check.status.success(), "{}", text(&check.stderr));
+        }
+    }
+    for d in [&dir, &renamed_dir, &state_dir] {
+        let _ = fs::remove_dir_all(d);
+    }
 }
 
 #[test]

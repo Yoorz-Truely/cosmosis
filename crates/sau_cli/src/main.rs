@@ -469,7 +469,11 @@ fn rename(args: &[String]) -> ExitCode {
     // Everything is checked before anything is written: the map first (only a missing map is
     // no map; a link, an unreadable file or a line it cannot use refuses the rename, since
     // writing it again would lose what it holds), then every file's new text is staged beside
-    // its target, and only then is each renamed over its file, the map last.
+    // its target, and only then is each renamed over its file. The map goes first: a running Sau
+    // may load between two of these renames, and with the map at the new handle and the files at
+    // the old one nothing changes, while files only partly renamed fail the check, so nothing is
+    // applied. The map last would let a load see every file renamed and the map not yet, make a
+    // new datablock for the new handle and remove the old one as stale (1b-01h round 3).
     let mut map = match cosmosis::ids::read(&root) {
         Ok(map) => map,
         Err(e) => {
@@ -537,15 +541,27 @@ fn rename(args: &[String]) -> ExitCode {
         }
         None => None,
     };
+    // The map first, then the files in their paths' order.
+    let mut map_note = String::new();
+    if let Some(m) = &staged_map {
+        if let Err(e) = cosmosis::ids::commit(&root, m) {
+            unstage(&staged);
+            let _ = std::fs::remove_file(m);
+            eprintln!(
+                "sau rename: cannot replace {}: {e}; nothing was changed",
+                layout::IDS_FILE
+            );
+            return ExitCode::FAILURE;
+        }
+        map_note = format!(", and its ID in {}", layout::IDS_FILE);
+    }
+    staged.sort_by(|a, b| a.2.cmp(&b.2));
     let mut changed = Vec::new();
     for (n, (temporary, target, shown)) in staged.iter().enumerate() {
         if let Err(e) = std::fs::rename(temporary, target) {
             unstage(&staged[n..]);
-            if let Some(m) = &staged_map {
-                let _ = std::fs::remove_file(m);
-            }
             eprintln!(
-                "sau rename: cannot replace {shown}: {e}; {} file{} already renamed: {}",
+                "sau rename: cannot replace {shown}: {e}; the map and {} file{} already renamed: {}",
                 changed.len(),
                 if changed.len() == 1 { " was" } else { "s were" },
                 changed.join(", ")
@@ -553,18 +569,6 @@ fn rename(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
         changed.push(shown.clone());
-    }
-    let mut map_note = String::new();
-    if let Some(m) = &staged_map {
-        if let Err(e) = cosmosis::ids::commit(&root, m) {
-            let _ = std::fs::remove_file(m);
-            eprintln!(
-                "sau rename: the files are renamed, but {} is not: {e}",
-                layout::IDS_FILE
-            );
-            return ExitCode::FAILURE;
-        }
-        map_note = format!(", and its ID in {}", layout::IDS_FILE);
     }
     println!(
         "sau rename: {} {old} is {new}: its definition and {} reference{} in {} file{}{map_note}",
