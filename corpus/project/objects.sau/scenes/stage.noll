@@ -2,6 +2,12 @@ scene @stage "Stage" {
   camera @view
   frame-start 1
   frame-end 300
+  units {
+    system metric
+    scale-length 1
+    length-unit centimeters
+    system-rotation degrees
+  }
   fps 30
   fps-base 1.001
   object @lid

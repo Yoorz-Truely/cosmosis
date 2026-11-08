@@ -1,4 +1,14 @@
 geometry @stack-up "Stack Up" {
+  is-modifier
+  input @geometry geometry "Geometry"
+  input @count int "Count" {
+    default-value 4
+    min-value 1
+  }
+  panel @spacing "Spacing" {
+    input @gap float-distance "Gap" { default-value 10cm }
+  }
+  output @stacked geometry "Geometry"
   nodes {
     node @in group-input
     zone @loop repeat "Repeat" {
@@ -14,15 +24,5 @@ geometry @stack-up "Stack Up" {
     }
     node @out group-output { stacked @loop.geometry }
   }
-  is-modifier
-  input @geometry geometry "Geometry"
-  input @count int "Count" {
-    default-value 4
-    min-value 1
-  }
-  panel @spacing "Spacing" {
-    input @gap float-distance "Gap" { default-value 10cm }
-  }
-  output @stacked geometry "Geometry"
   layout { @in [-500 0]; @loop [-300 0] [400 0]; @lift [-100 -120]; @join [150 0]; @out [600 0] }
 }

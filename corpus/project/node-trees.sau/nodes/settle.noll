@@ -1,5 +1,8 @@
 // A simulation zone and a for-each zone.
 geometry @settle "Settle" {
+  is-modifier
+  input @geometry geometry "Geometry"
+  output @settled geometry "Geometry"
   nodes {
     node @in group-input
     zone @sim simulation "Simulation" {
@@ -22,7 +25,4 @@ geometry @settle "Settle" {
     }
     node @out group-output { settled @each.piece }
   }
-  is-modifier
-  input @geometry geometry "Geometry"
-  output @settled geometry "Geometry"
 }

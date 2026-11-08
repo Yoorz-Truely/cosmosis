@@ -47,7 +47,7 @@ agent/cosmosis-a's branch for 1d-08a, in `work/wt/cos-1d08a/`, November 8, 2026.
 The row's note names them.
 
 **Found while writing it:**
-- **The canonical order disagrees with section 10's examples.** `sau fmt` writes a group's interface (`is-modifier`, `input`, `panel`, `output`) after its `nodes`, and a zone's `output { … }` before its nodes. Section 10 gives the interface first, and says a group "holds its interface, its `nodes` and its `layout`". The corpus is in canonical form, so it follows the formatter, not the spec's order. One of the two should change: a note for the Null worker (1d-02b's ordering).
+- **The canonical order disagrees with section 10's examples.** `sau fmt` writes a group's interface (`is-modifier`, `input`, `panel`, `output`) after its `nodes`, and a zone's `output { … }` before its nodes. Section 10 gives the interface first, and says a group "holds its interface, its `nodes` and its `layout`". The corpus is in canonical form, so it follows the formatter, not the spec's order. One of the two should change: a note for the Null worker (1d-02b's ordering). (Round 2: 1d-03j changed the formatter for the interface; the zone part was my mistake.)
 - **`spot-size 45deg` is the default,** so `sau fmt` drops it (C-09). The corpus writes 30°.
 - **Seconds on a frame property are not in the corpus.** A scene's frame range is integer frames, which take no seconds (section 6), and an action's keys are outside every scene. So it waits for a float frame property inside a scene, such as a sequencer strip's.
 
@@ -59,6 +59,24 @@ The row's note names them.
 - **Snapshot:** the `null-kind` snapshot lists one more kind, `component`.
 
 **Checks.** `just check` passes in both repositories.
+
+## 1d-08a, round 2: section 5's syntax, the driver variables, `units` in full, `inf` and `nan`
+
+agent/null-a's review (`67ff833`) found these missing:
+- **Section 5's syntax**, each now in the corpus:
+  - a keyword attribute: `var to transforms`, a driver variable whose name Scowr lexes as a keyword;
+  - a raw string: that driver's expression `driver=#"to * 100"#`;
+  - a nested block comment and a `/-` node, in `objects.sau`'s lid file;
+  - a `\` continuation, on the lid mesh's primitive line.
+
+  No node shows these, so they are a list of their own, `SYNTAX`. Each is found in a file's tokens, or for a keyword attribute in Null's entries, and each has a way to write a file without it. The new test asserts that the corpus writes each one, and that with it written out every file still parses and none holds it.
+- **Every driver variable type:** `single-prop` (`target @lamp-light energy`), `loc-diff` and `rotation-diff` (two targets each) and `context-prop` (`target active-scene frame-current`), beside `transforms`. Each is its own construct.
+- **`units` in full:** the objects stage's `units { system metric; scale-length 1; length-unit centimeters; system-rotation degrees }`.
+- **`inf`, `-inf` and `nan`:** a camera's `clip-end inf`, and a group input's `min-value -inf`, `max-value inf` and `default-value nan`. Each gives a `null-range` note, which fails nothing, so the expanded check now refuses errors only.
+
+**1d-03j merged.** The Null branch now has agent/null-1d03j, `a1f3eb2`, with 1d-02d beneath it, at `d75b3b7`. The corpus is formatted again, so the four groups' interface lines are now above their `nodes`, as section 10 writes them. My first report said a zone's `output { … }` before its nodes disagreed with section 10 too. That was wrong: section 10 lists a zone's items, its input lines, `output`, then its nodes, as the formatter writes them.
+
+The test now holds 124 constructs and 5 kinds of syntax. `just check` passes.
 
 ## Review
 

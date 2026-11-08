@@ -1,4 +1,7 @@
 geometry @tower "Tower" {
+  is-modifier
+  input @base geometry "Base"
+  output @tower-out geometry "Tower"
   nodes {
     node @in group-input
     node @stack group "Stack Up" {
@@ -9,7 +12,4 @@ geometry @tower "Tower" {
     }
     node @out group-output { tower-out @stack.stacked }
   }
-  is-modifier
-  input @base geometry "Base"
-  output @tower-out geometry "Tower"
 }

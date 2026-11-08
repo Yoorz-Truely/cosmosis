@@ -14,7 +14,11 @@ object @lid "Lid" {
   }
 }
 
-mesh @lid-mesh "Lid" { primitive cube size=1m }
+/* The lid's mesh /* a block comment nests */ and this is still the comment. */
+mesh @lid-mesh "Lid" { primitive cube \
+    size=1m }
+
+/- object @old-lid "Old Lid" { location [9m 9m 9m] }
 
 object @dial "Dial" { rotation-euler [0deg 0deg 45deg] }
 
@@ -38,5 +42,6 @@ object @view "View" {
 
 camera @view-lens "View" {
   clip-start 10cm
+  clip-end inf
   lens 35mm
 }

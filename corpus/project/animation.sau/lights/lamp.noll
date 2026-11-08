@@ -10,3 +10,47 @@ light @dial-lamp "Dial Lamp" {
     }
   }
 }
+
+// Every kind of driver variable. The first's name, `to`, is one Scowr lexes as a keyword
+// attribute; Null reads it as the two arguments it is (section 5).
+light @dial-lamp-2 "Dial Lamp 2" {
+  energy driver=#"to * 100"# {
+    var to transforms {
+      target @dial transform-type=rot-z transform-space=world-space
+    }
+  }
+}
+
+light @echo-lamp "Echo Lamp" {
+  energy driver="power" {
+    var power single-prop {
+      target @lamp-light energy
+    }
+  }
+}
+
+light @apart-lamp "Apart Lamp" {
+  energy driver="gap * 50" {
+    var gap loc-diff {
+      target @ball
+      target @dial
+    }
+  }
+}
+
+light @turn-lamp "Turn Lamp" {
+  energy driver="turn * 10" {
+    var turn rotation-diff {
+      target @ball
+      target @dial
+    }
+  }
+}
+
+light @frame-lamp "Frame Lamp" {
+  energy driver="frame" {
+    var frame context-prop {
+      target active-scene frame-current
+    }
+  }
+}

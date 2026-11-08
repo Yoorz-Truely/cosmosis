@@ -1,9 +1,14 @@
 geometry @stack "Stack" {
+  is-modifier
+  input @geometry geometry "Geometry"
+  input @limit float "Limit" {
+    min-value -inf
+    max-value inf
+    default-value nan
+  }
+  output @out-geometry geometry "Geometry"
   nodes {
     node @in group-input
     node @out group-output { out-geometry @in.geometry }
   }
-  is-modifier
-  input @geometry geometry "Geometry"
-  output @out-geometry geometry "Geometry"
 }

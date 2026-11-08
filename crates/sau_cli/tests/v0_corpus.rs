@@ -12,7 +12,7 @@ use std::process::Command;
 
 use cosmosis::source;
 use cosmosis::tree::{Entry, Node, ValueKind};
-use null_syntax::FileId;
+use null_syntax::{FileId, TokenKind};
 
 fn corpus() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus")
@@ -232,6 +232,23 @@ const CONSTRUCTS: &[(&str, &[Step])] = &[
     (
         "a colour as #rrggbb",
         &[("light", &[]), ("color", &[WordWith("#")])],
+    ),
+    ("infinity", &[("camera", &[]), ("clip-end", &[Word("inf")])]),
+    (
+        "minus infinity",
+        &[
+            ("geometry", &[]),
+            ("input", &[]),
+            ("min-value", &[Word("-inf")]),
+        ],
+    ),
+    (
+        "not a number",
+        &[
+            ("geometry", &[]),
+            ("input", &[]),
+            ("default-value", &[Word("nan")]),
+        ],
     ),
     ("armature", &[("armature", &[])]),
     ("world", &[("world", &[])]),
@@ -573,6 +590,50 @@ const CONSTRUCTS: &[(&str, &[Step])] = &[
             ("target", &[]),
         ],
     ),
+    (
+        "driver variable: transforms",
+        &[
+            ("light", &[]),
+            ("energy", &[]),
+            ("var", &[Word("transforms")]),
+        ],
+    ),
+    (
+        "driver variable: single property",
+        &[
+            ("light", &[]),
+            ("energy", &[]),
+            ("var", &[Word("single-prop")]),
+            ("target", &[Handle]),
+        ],
+    ),
+    (
+        "driver variable: location difference",
+        &[
+            ("light", &[]),
+            ("energy", &[]),
+            ("var", &[Word("loc-diff")]),
+            ("target", &[]),
+        ],
+    ),
+    (
+        "driver variable: rotation difference",
+        &[
+            ("light", &[]),
+            ("energy", &[]),
+            ("var", &[Word("rotation-diff")]),
+            ("target", &[]),
+        ],
+    ),
+    (
+        "driver variable: context property",
+        &[
+            ("light", &[]),
+            ("energy", &[]),
+            ("var", &[Word("context-prop")]),
+            ("target", &[Word("active-scene")]),
+        ],
+    ),
     // Section 17: short forms.
     (
         "short form: a handle made from the name",
@@ -595,6 +656,10 @@ const CONSTRUCTS: &[(&str, &[Step])] = &[
         &[("scene", &[]), ("units", &[Prop("scale")])],
     ),
     (
+        "units in full",
+        &[("scene", &[]), ("units", &[]), ("scale-length", &[])],
+    ),
+    (
         "short form: slot= left out",
         &[("object", &[]), ("action", &[NoProp("slot")])],
     ),
@@ -608,6 +673,74 @@ const CONSTRUCTS: &[(&str, &[Step])] = &[
         ],
     ),
 ];
+
+/// Section 5's syntax, which no node shows: each found in a file's tokens (or, for a keyword
+/// attribute, its entries), with how to write a file without it, for the load-bearing test.
+#[allow(clippy::type_complexity)]
+const SYNTAX: &[(&str, fn(&str) -> bool, fn(&str) -> String)] = &[
+    ("a keyword attribute (`to @x`)", has_keyword, |t| {
+        t.replace(" to ", " tx ")
+            .replace(" at ", " ax ")
+            .replace(" len ", " lx ")
+    }),
+    (
+        "a raw string",
+        |t| has_token(t, |k, _| k == TokenKind::RawString),
+        |t| t.replace("#\"", "\"").replace("\"#", "\""),
+    ),
+    (
+        "a nested block comment",
+        |t| {
+            has_token(t, |k, s| {
+                k == TokenKind::BlockComment && s.matches("/*").count() > 1
+            })
+        },
+        |t| without_tokens(t, TokenKind::BlockComment, " "),
+    ),
+    (
+        "a node commented out with `/-`",
+        |t| has_token(t, |k, _| k == TokenKind::Slashdash),
+        |t| t.replace("/-", "//"),
+    ),
+    (
+        "a line continued with a backslash",
+        |t| has_token(t, |k, _| k == TokenKind::Continuation),
+        |t| t.replace("\\\n", " "),
+    ),
+];
+
+/// Whether some token of `text` is one `pick` takes, given its kind and text.
+fn has_token(text: &str, pick: impl Fn(TokenKind, &str) -> bool) -> bool {
+    let mut at = 0;
+    null_syntax::lex(text).0.iter().any(|t| {
+        let s = &text[at..at + t.len as usize];
+        at += t.len as usize;
+        pick(t.kind, s)
+    })
+}
+
+/// `text` with every token of `kind` written as `with`.
+fn without_tokens(text: &str, kind: TokenKind, with: &str) -> String {
+    let mut out = String::new();
+    let mut at = 0;
+    for t in null_syntax::lex(text).0 {
+        let s = &text[at..at + t.len as usize];
+        at += t.len as usize;
+        out.push_str(if t.kind == kind { with } else { s });
+    }
+    out
+}
+
+/// Whether some node of `text` has a keyword attribute (`to @x`), as Scowr's parser reads it.
+fn has_keyword(text: &str) -> bool {
+    fn walk(n: null_syntax::ast::Node<'_>) -> bool {
+        n.entries()
+            .any(|e| matches!(e, null_syntax::ast::Entry::Keyword { .. }))
+            || n.children().any(walk)
+    }
+    let parse = null_syntax::parse(text);
+    parse.document().nodes().any(walk)
+}
 
 /// A file's live top-level nodes, read by Null's parser; the file must parse cleanly.
 fn parse(text: &str, path: &Path) -> Vec<Node> {
@@ -659,6 +792,23 @@ fn every_v0_construct_appears_in_the_corpus() {
     let parsed: Vec<Vec<Node>> = corpus_texts().iter().map(|(f, t)| parse(t, f)).collect();
     let missing = missing(&parsed);
     assert!(missing.is_empty(), "the corpus never writes: {missing:?}");
+}
+
+#[test]
+fn section_5_s_syntax_appears_in_the_corpus_and_each_is_load_bearing() {
+    let texts = corpus_texts();
+    for (name, found, without) in SYNTAX {
+        assert!(
+            texts.iter().any(|(_, t)| found(t)),
+            "the corpus never writes {name}"
+        );
+        // Written without it, every file still parses, and it is found nowhere.
+        for (f, t) in &texts {
+            let changed = without(t);
+            parse(&changed, f);
+            assert!(!found(&changed), "{name}: still found in {}", f.display());
+        }
+    }
 }
 
 #[test]
@@ -743,8 +893,10 @@ fn every_project_checks_formats_and_expands_clean() {
         let (flat, problems) = null_check::expand(schema, &ids);
         assert!(problems.is_empty(), "{}: {problems:?}", p.display());
         let found = null_check::check_expanded(schema, &flat);
+        // Notes stand (a value outside its range, `inf` and `nan` among them); errors do not.
         let found: Vec<String> = found
             .iter()
+            .filter(|d| d.severity == null_syntax::Severity::Error)
             .map(|d| {
                 format!(
                     "{}: {}",
