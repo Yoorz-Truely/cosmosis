@@ -81,3 +81,9 @@ I re-ran round 1's probes on a `sau` built from a copy of `f595e2f` in my scratc
 **Notes (none blocks):**
 - **A data file in `data/` is still two errors, and they disagree.** Alongside the new `cosmosis-data-file-place`, the layout's `cosmosis-layout-content-name` still fires, with the help "rename it to data/103bd…vertices.noll". Following that help leaves the data file in the wrong place, under a name no line can use. The content-name check could pass over a file that a `file=` line names, since the place error already says what to do.
 - **`handle_of` takes the first string argument anywhere on the line.** Null's own reading takes the first argument only. The two agree on every form that checks, so this only matters for a line Null already refuses.
+
+## C-10, follow-up after round 2
+
+The two notes from the round 2 review (`4deb188`):
+- **A data file in `data/` or `media/`** that a line names now gets only the place error. The layout leaves out its content-name or content-hash error for that file, whose help (rename it by its hash) would have pointed the wrong way. The test now writes the file there too, and expects one error.
+- **`handle_of`** reads a display name only as the first argument, as Null does.

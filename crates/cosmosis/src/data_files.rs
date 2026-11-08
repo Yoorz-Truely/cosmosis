@@ -79,6 +79,9 @@ pub struct Checked {
     /// Where Null's own matching errors (`null-handle`) are replaced by these: a naming line's
     /// name and a data file's `array` node, each with its file.
     pub replaced: Vec<(PathBuf, Span)>,
+    /// The files in `media/` or `data/` a line names as its data file: the place error is
+    /// theirs, so the layout's naming error for them is left out (one mistake, one error).
+    pub misplaced: Vec<PathBuf>,
 }
 
 /// `path`, written in the file at `from`, as a path from the root; `None` when it leaves it.
@@ -144,10 +147,7 @@ fn handle_of(node: Node<'_>) -> Option<String> {
     if let Some(h) = node.handle() {
         return Some(h.text.to_string());
     }
-    let name = node.args().find_map(|v| match v {
-        Value::Str(_) | Value::Raw(_) => v.as_string(),
-        _ => None,
-    })?;
+    let name = node.args().next()?.as_string()?;
     Some(format!("@{}", to_kebab_case(&name)?))
 }
 
@@ -304,6 +304,7 @@ pub fn check(sources: &[SourceFile]) -> Checked {
             if let Some(d) = &elsewhere {
                 pointed.push(d.clone());
             }
+            checked.misplaced.push(target.clone());
             continue;
         }
         let Some(file) = by_path.get(target.as_path()) else {

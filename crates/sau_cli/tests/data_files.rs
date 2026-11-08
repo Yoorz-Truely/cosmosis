@@ -376,11 +376,15 @@ fn a_wrong_path_to_another_array_s_file_is_one_error_naming_the_right_one() {
 
 #[test]
 fn a_data_file_in_a_content_folder_is_in_the_wrong_place() {
+    // The file is there too: the layout does not also ask to rename it by its hash.
     let root = rock(
-        &[(
-            MESH,
-            &mesh().replace("\"rock.heat.noll\"", "\"../data/rock.heat.noll\""),
-        )],
+        &[
+            (
+                MESH,
+                &mesh().replace("\"rock.heat.noll\"", "\"../data/rock.heat.noll\""),
+            ),
+            ("data/rock.heat.noll", "array mesh @rock @heat [\n  1\n]\n"),
+        ],
         &[],
     );
     let (found, err) = errors(&root);
