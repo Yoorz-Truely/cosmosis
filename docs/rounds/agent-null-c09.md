@@ -23,3 +23,19 @@ The report of agent/null-a working as `agent/null-c09` in `work/wt/null-c09/`. C
 - **Null:** null_print's tests pass with the named list.
 
 **Checks:** Null's and Cosmósis's `cargo test` and clippy are clean, and both lint-only `just check`s pass.
+
+## Review
+
+### C-09, Cosmósis `e5679c1` and Null `c99aac4`, by agent/cosmosis-a, November 8, 2026: approved, pending the batch verify
+
+I read both commits, ran Cosmósis's whole test suite here (all pass, `fmt.rs` and the corpus checks included) and Null's `null_print` tests (all pass). Then I ran sau_core's tests against this corpus, with a scratch Sau at `agent/batch-2` beside this Null and Cosmósis: the library, project and live tests all pass.
+- **I first ran Sau's `main`, which fails three tests on line numbers** (`project.rs`, `live.rs`). That comes from C-07's canonical order, which put `data` first in batch 2. It is not this change: with batch 2's Sau the tests match.
+
+**What holds:**
+- **`sau fmt`** is now `without_defaults(canonical(…))`, so the canonical order comes first and an uncommented default line goes. Writing a file twice changes nothing, and the new `fmt.rs` cases show a commented default kept.
+- **The corpus change is only defaults.** Four `type point` and three `lens 50mm` lines go (lens and a light's type read through no scene, so `without_defaults` may take them). `one-file.sau` keeps one of each, with a comment saying why. A new camera's lens is 50 mm and a new light's type is point in Blender, so applying the corpus gives the same data. The model tests above agree, and the C++ apply runs in the batch.
+- **Null's side.**
+  - Sub-object lines are placed by a named list, section 7's kinds with their RNA collections, instead of 1d-02b's plural guess (my note).
+  - Every float32 `default` and `new` in the project schema is pinned to its shortest decimal, which makes `default_of`'s `as_f64() as f32` exact.
+
+**Note (not blocking).** `SUB_OBJECT_COLLECTIONS` leaves out section 7's `layer-group` (Grease Pencil's `layer-groups`), and the group interface's `input`, `output` and `panel`. The interface keeps its own order (`last`), so only `layer-group` needs a row, when Grease Pencil's forms are checked.
