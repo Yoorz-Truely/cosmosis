@@ -4,6 +4,5 @@ object @key "Key Light" {
 }
 
 light @key-light "Key Light" {
-  type point
   energy 1000W
 }
