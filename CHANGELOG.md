@@ -8,3 +8,4 @@
 - November 7, 2026: renamed from Shoon to Cosmósis, written `cosmosis` where an accent cannot go: `cosmosis.noll`, `cosmosis.lock`, the spec `docs/spec/cosmosis-v0.md`, the folder `~/Projects/Cosmosis`.
 - November 6, 2026: the repository is created. The draft v0 specification moves here from Sau's `docs/SHOON.md`. The name Shoon was chosen by the user.
 - November 7, 2026: the folder layout complete (S36, S66): a handle defined twice names both files and lines, a reference is found in any file, `.sau/ids.noll` is read (and kept in Git) while the rest of `.sau/` is skipped, `settings.noll` and `view.noll` are checked for syntax only, and the `.gitignore` and `.gitattributes` templates ship in `templates/project/`. Sau task 1d-04b.
+- November 8, 2026: `sau check` checks against Null's schema of all project data (`null-schema-project.json`), so every datablock type's properties are checked, not only the slice's. Sau task C-06.

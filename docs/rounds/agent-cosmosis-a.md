@@ -188,9 +188,20 @@ Each of the layout's earlier rules and errors already had a test, now listed wit
 - **A `.sau` that is a link to a folder** is not followed for the map, as `walk` follows no link to a folder; a `cosmosis-layout-link` note says so. Section 2 says both.
 - **Tests:** the broken link (exit 1 at `.sau/ids.noll`), and a linked `.sau` holding a broken map (not read, exit 0, the note).
 
+## C-06: `sau check` on the schema of all project data
+
+**What changed.** `schema_check` compiles in Null's `schema/null-schema-project.json` (Sau 1b-03b, read by 1b-03e's checker) instead of the slice's `null-schema.json`: one line, and the module's doc comment.
+
+**Measured** (`crates/sau_cli/tests/project_schema.rs`):
+
+- **The corpus still checks clean.** All six slice projects pass `sau check` on the project schema.
+- **A type the slice's schema never knew is checked.** A world misspelt as `colr` on a copy of one-cube is now `null-unknown-property … did you mean `color`?` at `world.noll:2:3`. With the slice's schema, the kind itself was refused (`null-kind`). A clean world passes.
+
+**The row's "Done when"** asks for a misspelt modifier property. The project schema holds every modifier's properties (`bevel-modifier` and the others), but the line that writes a modifier, `modifier @bevel bevel { … }`, is a sub-object form the checker reads only from Sau 1d-07. Until then it is "an object has no `modifier`" (the third test shows it is an error, not a silent pass). So I showed the same thing, a misspelling the slice's schema could not know, on a world. The modifier case belongs with 1d-07: lead's call whether to amend this row's wording.
+
 ## Next
 
-1d-04b in review.
+C-06 in review.
 
 ## Also done
 
