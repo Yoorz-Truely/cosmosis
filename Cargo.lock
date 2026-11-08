@@ -100,6 +100,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "null_print"
+version = "0.0.0"
+dependencies = [
+ "null_check",
+ "null_syntax",
+ "null_value",
+]
+
+[[package]]
 name = "null_syntax"
 version = "0.0.0"
 dependencies = [
@@ -167,6 +176,8 @@ name = "sau_cli"
 version = "0.0.0"
 dependencies = [
  "cosmosis",
+ "null_print",
+ "null_syntax",
 ]
 
 [[package]]
