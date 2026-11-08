@@ -10,7 +10,7 @@ mesh @ground-mesh "Ground" {
 // Used by the ground only, so written here.
 material @polished-stone "Polished Stone" {
   nodes {
-    node @bsdf principled-bsdf {
+    node @bsdf bsdf-principled {
       base-color [0.18 0.18 0.2 1]
       roughness 0.05
     }

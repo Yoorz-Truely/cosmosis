@@ -1,0 +1,6 @@
+// A project with Cycles' render, object, light and world settings: blocks of Cycles' own
+// structs (S70), checked against the project schema's `cycles` section (Sau task 1b-03g).
+project "Cycles Render" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}

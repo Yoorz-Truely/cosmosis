@@ -1,0 +1,15 @@
+scene @main "Main" {
+  camera @shot-cam
+  world @sky
+  frame-start 1
+  frame-end 48
+  object @cube
+  object @shot-cam
+  object @key
+  cycles {
+    device gpu
+    use-denoising
+    samples 128
+    time-limit 30s
+  }
+}
