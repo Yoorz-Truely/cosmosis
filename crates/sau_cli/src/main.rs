@@ -617,7 +617,9 @@ background and writes every datablock of the kinds it applies through RNA, one N
 datablock in Cosmósis's default layout (scenes/, objects/ with each object's own data, collections/,
 materials/, worlds/, nodes/, and a folder per kind for data several objects share), with the
 manifest, project.noll and the shipped .gitignore and .gitattributes. Interface state (screens,
-workspaces, window managers, brushes) is left out (S61). What is not converted yet is said.
+workspaces, window managers, brushes) is left out (S61). Each image's, sound's, font's, clip's,
+cache's and volume's file, packed or not, goes into media/ by its SHA-256 (S83). What is not
+converted yet is said.
 The folder must not exist or must be empty. The folder is then checked as `sau check` checks.
 
 Sau is the app SAU_APP names (its executable, or a script that runs it).
