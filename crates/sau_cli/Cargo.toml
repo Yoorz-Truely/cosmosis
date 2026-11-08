@@ -16,9 +16,9 @@ workspace = true
 
 [dependencies]
 cosmosis = { path = "../cosmosis" }
+null_syntax = { path = "../../../Null/compiler/null_syntax" }
 
 [dev-dependencies]
 # Canonical order, for the corpus's beyond-the-slice projects printing back unchanged (Sau task
 # 1b-03g).
 null_print = { path = "../../../Null/compiler/null_print" }
-null_syntax = { path = "../../../Null/compiler/null_syntax" }

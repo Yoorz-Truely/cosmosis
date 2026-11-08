@@ -123,6 +123,14 @@ A package is a Cosmósis project of another kind, with a manifest, versions, and
 
 `sau new <template> <path>` starts a project from a template package: `empty`, `product-shot`, `character`, `environment`, `motion-graphics`, `architectural`, `game-asset`. Each template is a complete project with settings pinned, checks included and a short README.
 
+`sau new empty <path>` is built (Sau task 1d-04e). It makes the folder, which must not exist yet or be empty, with:
+
+- `cosmosis.noll`, the package named after the folder in kebab case (`Harbor at Dusk.sau` gives `harbor-at-dusk`);
+- a `project.noll`;
+- the `.gitignore` and `.gitattributes` of section 2's "Version control".
+
+The project it makes checks clean. The other templates come with their packages.
+
 ## 7. Commands
 
 | Command | Does |
