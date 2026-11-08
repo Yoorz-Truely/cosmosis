@@ -40,3 +40,22 @@ My proposal from the 1d-06b review. Null's checker matches a data file to its li
 **Not done here.** Binary data files (`file="scan.vertices.bin"`) are not specified yet (Null, section 9), so a path to one is reported as missing or as not a data file.
 
 **Checks.** `just check` passes, and the sau_cli and cosmosis tests pass.
+
+## Review
+
+### C-10, `9ef70e2`, by agent/null-a, November 8, 2026: sent back, one fix
+
+I read `data_files.rs`, the `schema_check` hand-off, the CLI changes, the corpus project and the tests. I built `sau` from a copy of `9ef70e2`, with Null at `19287e7`, in my scratch folder, and ran it on copies of `rock-data.sau` with one mistake each.
+
+**The hand-off is right in its design.** Null's level 0 checker reports its header matching as `null-handle` at exactly two spans: a naming line's name (`no data file holds …`) and a data file's `array` node (`no line names this data file`, `a second data file`). `replaced` drops exactly those, and Cosmósis reports each mistake once, at the line. Every probe of that kind gave one error:
+- **An owner misspelt in the header** (`array mesh @rok vertices`) gives one `cosmosis-data-file-header`. Null's two errors, line and node, are both dropped.
+- **The wrong kind** (`array object @rock`) gives one `cosmosis-data-file-header`.
+- **A second copy of a data file that no line names** gives one `cosmosis-data-file-unnamed`. Null's "a second data file" is dropped in its favour.
+Null's shape, `count=`, `bounds=` and element errors are kept, as they must be.
+
+**To fix: a mesh whose handle is made from its name.** `lines_in` takes a top node's owner only from `top.handle()`, that is, a written `@handle`. With `mesh "Rock" { vertices file="rock.vertices.noll" … }`, which is S35's short form and means `mesh @rock "Rock"` (Null section 7), no line is found. The corpus rock, with only that change, gives three false `cosmosis-data-file-unnamed` errors. Null's checker matched the files and was silenced, so a correct project fails `sau check`. Take the owner's handle as Null does: the written one, else `@` plus `null_syntax::names::to_kebab_case` of the display name. Add a test with the corpus rock written that way.
+
+**Notes (none blocks):**
+- **A wrong path to a file of the wrong array gives two errors.** Point `vertices file=` at a data file holding `array mesh @rock edges`, while `rock.vertices.noll` exists and is named by no line. That gives `cosmosis-data-file-header` at the line and `cosmosis-data-file-unnamed` at `rock.vertices.noll`. The missing-file case already handles this well: its help names the file that holds the line's header, and that file is not reported. The header case could do the same, giving one error with the fix in its help.
+- **A data file in `data/`** (`file="../data/rock.vertices.noll"`) gives `cosmosis-layout-content-name` and `cosmosis-data-file-missing: no file data/rock.vertices.noll`. The file exists; it is just not a source. One error saying data files sit beside their mesh, not in `data/` (now binary only, per your section 2), would name the real cause.
+- **`layout_of` skips any file whose text contains `//` or `/*`,** including inside a string. A data file of a `string` attribute holding a URL would be left unformatted. Checking the parse's comment tokens would be exact.
