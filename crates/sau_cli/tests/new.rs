@@ -54,6 +54,26 @@ fn a_new_project_has_the_shipped_git_files_and_checks_clean() {
             .unwrap()
             .starts_with("package \"harbor-at-dusk\" {")
     );
+    // A Blender project too (S45), named as the package.
+    assert_eq!(
+        fs::read_to_string(root.join(".blender_project/project.toml")).unwrap(),
+        "schema_version = 1\nname = \"harbor-at-dusk\"\n"
+    );
+    assert_eq!(
+        cosmosis::blender_project::name(&root).as_deref(),
+        Some("harbor-at-dusk")
+    );
+    // Renamed in cosmosis.noll, it follows.
+    let manifest = root.join("cosmosis.noll");
+    let renamed = fs::read_to_string(&manifest)
+        .unwrap()
+        .replace("harbor-at-dusk", "pier-at-noon");
+    fs::write(&manifest, renamed).unwrap();
+    assert!(cosmosis::blender_project::sync(&root).unwrap().unwrap());
+    assert_eq!(
+        cosmosis::blender_project::name(&root).as_deref(),
+        Some("pier-at-noon")
+    );
     // The project checks clean as made.
     let check = sau(&["check", root.to_str().unwrap()]);
     assert_eq!(check.status.code(), Some(0), "{}", text(&check.stderr));
