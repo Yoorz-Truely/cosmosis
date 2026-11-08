@@ -86,10 +86,10 @@ fn a_datablock_type_the_slice_never_knew_is_checked() {
 }
 
 #[test]
-fn a_modifier_line_waits_for_its_form() {
-    // A modifier's properties are in the project schema (`bevel-modifier`), but the line that
-    // writes one, `modifier @bevel bevel { … }`, is a sub-object form Null's checker reads only
-    // from Sau task 1d-07; until then it is an unknown property of the object, not a silent pass.
+fn a_misspelt_modifier_property_is_caught_with_its_fix() {
+    // A modifier is a sub-object line, `modifier @bevel bevel { … }`, whose block holds the
+    // properties of that kind of modifier (Null's spec, section 8; Sau task 1d-07a), so a
+    // misspelt one is an error with the right name as its fix.
     let root = with_file(
         "modifier",
         "object @lid \"Lid\" {\n  modifier @bevel bevel {\n    wdth 4mm\n  }\n}\n",
@@ -97,7 +97,9 @@ fn a_modifier_line_waits_for_its_form() {
     let (code, _, err) = sau(&root);
     assert_eq!(code, Some(1), "{err}");
     assert!(
-        err.contains("error[null-unknown-property]: an object has no `modifier`"),
+        err.contains(
+            "error[null-unknown-property]: a bevel modifier has no `wdth`; did you mean `width`?"
+        ),
         "{err}"
     );
 }
