@@ -252,6 +252,114 @@ fn a_rename_is_refused_when_the_map_has_a_line_it_cannot_read() {
     let _ = fs::remove_dir_all(&dir);
 }
 
+/// A copy of the first corpus project, its first definition's handle, and every file's text.
+fn fresh(tag: &str) -> (PathBuf, String) {
+    let project = projects().into_iter().next().unwrap();
+    let dir =
+        Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("rename-{tag}-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    copy(&project, &dir);
+    let old = definitions(&dir)[0].1.clone();
+    (dir, old)
+}
+
+#[test]
+fn a_map_that_exists_but_cannot_be_read_refuses_the_rename_and_changes_nothing() {
+    // Only a missing map means no map (1b-01h's review): a folder where the map should be is
+    // not "no map", so the rename is refused before any file is written.
+    let (dir, old) = fresh("map-folder");
+    fs::create_dir_all(dir.join(".sau/ids.noll")).unwrap();
+    let mut before = Vec::new();
+    files(&dir, &dir, &mut before);
+    let out = sau(&["rename", &old, "@fresh-handle", dir.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(1), "{}", text(&out.stdout));
+    assert!(
+        text(&out.stderr).contains("nothing") || text(&out.stderr).contains("fix it first"),
+        "{}",
+        text(&out.stderr)
+    );
+    let mut after = Vec::new();
+    files(&dir, &dir, &mut after);
+    assert_eq!(before, after);
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_sau_folder_that_is_a_link_refuses_the_rename_before_any_file_is_written() {
+    let (dir, old) = fresh("map-link");
+    let elsewhere = dir.with_extension("elsewhere");
+    let _ = fs::remove_dir_all(&elsewhere);
+    fs::create_dir_all(&elsewhere).unwrap();
+    let defs = definitions(&dir);
+    fs::write(elsewhere.join("ids.noll"), map(&defs)).unwrap();
+    std::os::unix::fs::symlink(&elsewhere, dir.join(".sau")).unwrap();
+    let mut before = Vec::new();
+    files(&dir, &dir, &mut before);
+    let out = sau(&["rename", &old, "@fresh-handle", dir.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        text(&out.stderr).contains("is a link"),
+        "{}",
+        text(&out.stderr)
+    );
+    let mut after = Vec::new();
+    files(&dir, &dir, &mut after);
+    assert_eq!(before, after);
+    assert_eq!(
+        fs::read_to_string(elsewhere.join("ids.noll")).unwrap(),
+        map(&defs)
+    );
+    let _ = fs::remove_dir_all(&dir);
+    let _ = fs::remove_dir_all(&elsewhere);
+}
+
+#[test]
+fn no_staged_file_is_left_behind() {
+    let (dir, old) = fresh("staged");
+    let defs = definitions(&dir);
+    fs::create_dir_all(dir.join(".sau")).unwrap();
+    fs::write(dir.join(".sau/ids.noll"), map(&defs)).unwrap();
+    let out = sau(&["rename", &old, "@fresh-handle", dir.to_str().unwrap()]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let mut after = Vec::new();
+    files(&dir, &dir, &mut after);
+    let left: Vec<_> = after
+        .iter()
+        .filter(|(p, _)| p.to_string_lossy().contains(".sau-"))
+        .collect();
+    assert!(left.is_empty(), "{left:?}");
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_block_of_sub_objects_of_a_map_entry_survives_a_rename() {
+    // S73 (4): the owner's block of sub-object entries moves with its entry.
+    let (dir, old) = fresh("map-block");
+    let defs = definitions(&dir);
+    let kind = defs[0].0.clone();
+    let block = "{\n    modifier @bevel 7\n    vertex-group @left \"Left\"\n  }";
+    let with_block = map(&defs).replacen(
+        &format!("  {kind} {old} \"{:032x}\"\n", 1),
+        &format!("  {kind} {old} \"{:032x}\" {block}\n", 1),
+        1,
+    );
+    assert_ne!(
+        with_block,
+        map(&defs),
+        "the first entry is the first definition's"
+    );
+    fs::create_dir_all(dir.join(".sau")).unwrap();
+    fs::write(dir.join(".sau/ids.noll"), &with_block).unwrap();
+    let out = sau(&["rename", &old, "@fresh-handle", dir.to_str().unwrap()]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let ids = fs::read_to_string(dir.join(".sau/ids.noll")).unwrap();
+    assert!(
+        ids.contains(&format!("  {kind} @fresh-handle \"{:032x}\" {block}\n", 1)),
+        "{ids}"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn rename_takes_two_handles() {
     let out = sau(&["rename", "@a"]);

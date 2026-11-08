@@ -11,16 +11,27 @@
 //! }
 //! ```
 //!
-//! One `ids` block of `kind @handle "<32 hex digits>"` entries, sorted by kind and handle.
+//! One `ids` block of `kind @handle "<32 hex digits>"` entries, sorted by kind and handle. An
+//! entry may carry a block of its owner's sub-objects (Sau's decision S73 (1)); this module does
+//! not read it, but keeps its text with its entry, through a rename too (S73 (4)).
 
 use std::collections::BTreeMap;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::layout::IDS_FILE;
 
-/// (kind, handle) to the ID's 32 lower-case hexadecimal digits.
-pub type Map = BTreeMap<(String, String), String>;
+/// (kind, handle) to its entry.
+pub type Map = BTreeMap<(String, String), Entry>;
+
+/// One datablock's entry: its ID, and its block of sub-object entries as written, if any.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Entry {
+    /// The ID's 32 lower-case hexadecimal digits.
+    pub id: String,
+    /// The entry's block, from `{` to `}`, exactly as the file has it (S73's sub-objects).
+    pub block: Option<String>,
+}
 
 /// Reads the map's entries; the second list names, by line, the entries it could not use (another
 /// form, a handle twice, an ID twice), which are left out, the first of two kept.
@@ -54,7 +65,8 @@ pub fn parse(text: &str) -> (Map, Vec<usize>) {
                 (Some(key), Some(id), None)
                     if !map.contains_key(&key) && seen.insert(id.clone()) =>
                 {
-                    map.insert(key, id);
+                    let block = entry.block().map(|b| b.text().to_string());
+                    map.insert(key, Entry { id, block });
                 }
                 _ => bad.push(line(entry.span().start)),
             }
@@ -69,36 +81,78 @@ pub fn text(map: &Map) -> String {
         "// Sau's map of handles to persistent IDs (decisions S61 (2) and S66). Sau writes this file;\n\
          // keep it in Git with the project.\nids {\n",
     );
-    for ((kind, handle), id) in map {
-        out.push_str(&format!("  {kind} {handle} \"{id}\"\n"));
+    for ((kind, handle), entry) in map {
+        out.push_str(&format!("  {kind} {handle} \"{}\"", entry.id));
+        if let Some(block) = &entry.block {
+            out.push(' ');
+            out.push_str(block);
+        }
+        out.push('\n');
     }
     out.push_str("}\n");
     out
 }
 
-/// Writes the map of the project at `root` atomically (beside it, then renamed over it), never
-/// through a `.sau` or a map that is a link.
-pub fn write(root: &Path, text: &str) -> std::io::Result<()> {
-    let folder = root.join(".sau");
-    let path = root.join(IDS_FILE);
-    for p in [&folder, &path] {
+/// Refuses a map that would be read or written through a link: `.sau` or the map itself (the
+/// layout check does not follow one either).
+pub fn check_not_linked(root: &Path) -> std::io::Result<()> {
+    for p in [root.join(".sau"), root.join(IDS_FILE)] {
         if p.symlink_metadata()
             .is_ok_and(|m| m.file_type().is_symlink())
         {
             return Err(std::io::Error::other(format!(
-                "{} is a link; the map is not written through one",
+                "{} is a link; the map is not read or written through one",
                 p.display()
             )));
         }
     }
+    Ok(())
+}
+
+/// Reads the map of the project at `root`: `None` when it has none (only a missing file means
+/// that), and an error for a link, a file that cannot be read, or a line that cannot be used,
+/// since writing such a map again would lose what it holds.
+pub fn read(root: &Path) -> std::io::Result<Option<Map>> {
+    check_not_linked(root)?;
+    let text = match std::fs::read_to_string(root.join(IDS_FILE)) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    let (map, bad) = parse(&text);
+    if !bad.is_empty() {
+        let lines: Vec<String> = bad.iter().map(usize::to_string).collect();
+        return Err(std::io::Error::other(format!(
+            "{IDS_FILE} has lines it cannot read ({})",
+            lines.join(", ")
+        )));
+    }
+    Ok(Some(map))
+}
+
+/// Writes `text` beside the map, to be renamed over it by [`commit`]: the first half of an
+/// atomic write, so a caller can stage every file before it replaces any.
+pub fn stage(root: &Path, text: &str) -> std::io::Result<PathBuf> {
+    check_not_linked(root)?;
+    let folder = root.join(".sau");
     std::fs::create_dir_all(&folder)?;
     let temporary = folder.join("ids.noll.sau-write");
-    {
-        let mut out = std::fs::File::create(&temporary)?;
-        out.write_all(text.as_bytes())?;
-        out.sync_all()?;
-    }
-    std::fs::rename(&temporary, &path)
+    let mut out = std::fs::File::create(&temporary)?;
+    out.write_all(text.as_bytes())?;
+    out.sync_all()?;
+    Ok(temporary)
+}
+
+/// Renames a [`stage`]d map over the map.
+pub fn commit(root: &Path, staged: &Path) -> std::io::Result<()> {
+    std::fs::rename(staged, root.join(IDS_FILE))
+}
+
+/// Writes the map of the project at `root` atomically (beside it, then renamed over it), never
+/// through a `.sau` or a map that is a link.
+pub fn write(root: &Path, text: &str) -> std::io::Result<()> {
+    let staged = stage(root, text)?;
+    commit(root, &staged)
 }
 
 /// Moves the entry of `kind`'s `old` handle to `new`: whether the map had one.
@@ -133,6 +187,28 @@ mod tests {
 
     fn text_of(map: &Map) -> String {
         text(map)
+    }
+
+    #[test]
+    fn the_block_of_sub_objects_of_an_entry_is_kept_and_moves_with_it() {
+        // S73 (1) and (4): the block is the core's to read; every writer keeps it with its entry.
+        let text = "ids {\n  object @cube \"00000000000000000000000000000001\" {\n    modifier @bevel 7\n    constraint @aim \"Aim\"\n  }\n  mesh @m \"00000000000000000000000000000002\"\n}\n";
+        let (mut map, bad) = parse(text);
+        assert!(bad.is_empty(), "{bad:?}");
+        let block = map[&("object".to_string(), "@cube".to_string())]
+            .block
+            .clone();
+        assert_eq!(
+            block.as_deref(),
+            Some("{\n    modifier @bevel 7\n    constraint @aim \"Aim\"\n  }")
+        );
+        assert!(rename(&mut map, "object", "@cube", "@box"));
+        let written = text_of(&map);
+        assert!(
+            written.contains("  object @box \"00000000000000000000000000000001\" {\n    modifier @bevel 7\n    constraint @aim \"Aim\"\n  }\n"),
+            "{written}"
+        );
+        assert_eq!(parse(&written).0, map);
     }
 
     #[test]

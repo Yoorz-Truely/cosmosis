@@ -9,7 +9,7 @@
 //! Exit status: 0 when the command succeeded, 1 when it found errors, 2 on wrong usage or a
 //! command that is not built yet.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use cosmosis::diagnostic::{Diagnostic, nearest};
@@ -466,28 +466,28 @@ fn rename(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    // The handle map, read before anything is written: a line it cannot read would be dropped
-    // when it is written again, so the rename is refused and nothing changes.
-    let map_path = root.join(layout::IDS_FILE);
-    let map = match std::fs::read_to_string(&map_path) {
-        Ok(text) => {
-            let (map, bad) = cosmosis::ids::parse(&text);
-            if !bad.is_empty() {
-                let lines: Vec<String> = bad.iter().map(usize::to_string).collect();
-                eprintln!(
-                    "sau rename: {} has lines it cannot read ({}); fix them first (`sau check`), so that no ID is lost",
-                    layout::IDS_FILE,
-                    lines.join(", ")
-                );
-                return ExitCode::FAILURE;
-            }
-            Some(map)
+    // Everything is checked before anything is written: the map first (only a missing map is
+    // no map; a link, an unreadable file or a line it cannot use refuses the rename, since
+    // writing it again would lose what it holds), then every file's new text is staged beside
+    // its target, and only then is each renamed over its file, the map last.
+    let mut map = match cosmosis::ids::read(&root) {
+        Ok(map) => map,
+        Err(e) => {
+            eprintln!("sau rename: {e}; fix it first (`sau check`), so that no ID is lost");
+            return ExitCode::FAILURE;
         }
-        Err(_) => None,
     };
-    // Each file's edits, from its end, so earlier spans stay where they were.
-    let mut changed = Vec::new();
+    let map_text = map.as_mut().and_then(|m| {
+        cosmosis::ids::rename(m, &done.kind, old, new).then(|| cosmosis::ids::text(m))
+    });
+    let mut staged: Vec<(PathBuf, PathBuf, String)> = Vec::new();
+    let unstage = |staged: &[(PathBuf, PathBuf, String)]| {
+        for (temporary, _, _) in staged {
+            let _ = std::fs::remove_file(temporary);
+        }
+    };
     for (i, file) in files.iter().enumerate() {
+        // Each file's edits, from its end, so earlier spans stay where they were.
         let mut edits: Vec<_> = done
             .edits
             .iter()
@@ -501,19 +501,63 @@ fn rename(args: &[String]) -> ExitCode {
         for e in edits {
             text.replace_range(e.span.start..e.span.end, &e.replacement);
         }
-        // Written through a link to its target, as write-back does (1a-14).
-        if let Err(e) = std::fs::write(root.join(&file.path), &text) {
-            eprintln!("sau rename: cannot write {}: {e}", file.path.display());
+        // Written through a link to its target, as write-back does (1a-14): staged beside the
+        // target, then renamed over it.
+        let staged_one = std::fs::canonicalize(root.join(&file.path)).and_then(|target| {
+            let mut name = target.file_name().unwrap_or_default().to_os_string();
+            name.push(".sau-rename");
+            let temporary = target.with_file_name(name);
+            std::fs::write(&temporary, &text)?;
+            std::fs::File::open(&temporary)?.sync_all()?;
+            Ok((temporary, target))
+        });
+        match staged_one {
+            Ok((temporary, target)) => {
+                staged.push((temporary, target, file.path.display().to_string()));
+            }
+            Err(e) => {
+                unstage(&staged);
+                eprintln!(
+                    "sau rename: cannot write {}: {e}; nothing was changed",
+                    file.path.display()
+                );
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    let staged_map = match map_text.as_deref().map(|t| cosmosis::ids::stage(&root, t)) {
+        Some(Ok(path)) => Some(path),
+        Some(Err(e)) => {
+            unstage(&staged);
+            eprintln!(
+                "sau rename: cannot write {}: {e}; nothing was changed",
+                layout::IDS_FILE
+            );
             return ExitCode::FAILURE;
         }
-        changed.push(file.path.display().to_string());
+        None => None,
+    };
+    let mut changed = Vec::new();
+    for (n, (temporary, target, shown)) in staged.iter().enumerate() {
+        if let Err(e) = std::fs::rename(temporary, target) {
+            unstage(&staged[n..]);
+            if let Some(m) = &staged_map {
+                let _ = std::fs::remove_file(m);
+            }
+            eprintln!(
+                "sau rename: cannot replace {shown}: {e}; {} file{} already renamed: {}",
+                changed.len(),
+                if changed.len() == 1 { " was" } else { "s were" },
+                changed.join(", ")
+            );
+            return ExitCode::FAILURE;
+        }
+        changed.push(shown.clone());
     }
-    // The handle map keeps the datablock's ID under its new handle.
     let mut map_note = String::new();
-    if let Some(mut map) = map
-        && cosmosis::ids::rename(&mut map, &done.kind, old, new)
-    {
-        if let Err(e) = cosmosis::ids::write(&root, &cosmosis::ids::text(&map)) {
+    if let Some(m) = &staged_map {
+        if let Err(e) = cosmosis::ids::commit(&root, m) {
+            let _ = std::fs::remove_file(m);
             eprintln!(
                 "sau rename: the files are renamed, but {} is not: {e}",
                 layout::IDS_FILE
