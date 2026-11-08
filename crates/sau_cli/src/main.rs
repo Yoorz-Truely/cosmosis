@@ -165,7 +165,10 @@ fn new(args: &[String]) -> ExitCode {
     }
     let stem = root
         .file_name()
-        .map(|n| n.to_string_lossy().trim_end_matches(".sau").to_string())
+        .map(|n| {
+            let n = n.to_string_lossy();
+            n.strip_suffix(".sau").unwrap_or(&n).to_string()
+        })
         .unwrap_or_default();
     let Some(name) = cosmosis::manifest::to_kebab(&stem) else {
         return usage_error(&format!(
@@ -175,11 +178,15 @@ fn new(args: &[String]) -> ExitCode {
     let files = [
         (
             cosmosis::manifest::MANIFEST_FILE,
-            format!("package \"{name}\" {{\n  null-format 1\n}}\n"),
+            format!(
+                "package {} {{\n  null-format 1\n}}\n",
+                null_syntax::escape(&name)
+            ),
         ),
         (
             cosmosis::layout::PROJECT_FILE,
-            format!("project \"{stem}\" {{\n}}\n"),
+            // The folder's name as written, escaped: it may hold `"` or `\`.
+            format!("project {} {{\n}}\n", null_syntax::escape(&stem)),
         ),
         (".gitignore", cosmosis::templates::GITIGNORE.to_string()),
         (

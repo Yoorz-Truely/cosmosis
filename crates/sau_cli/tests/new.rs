@@ -124,3 +124,45 @@ fn sau_new_refuses_a_folder_in_use_an_unknown_template_and_a_nameless_folder() {
     assert_eq!(out.status.code(), Some(2), "{}", text(&out.stderr));
     assert_eq!(sau(&["new"]).status.code(), Some(2));
 }
+
+/// The project's name in `project.noll`, read back as Null reads it.
+fn project_name(root: &Path) -> String {
+    let text = fs::read_to_string(root.join("project.noll")).unwrap();
+    let (tokens, errors) = null_syntax::lex(&text);
+    assert!(errors.is_empty(), "{errors:?} in {text}");
+    let mut at = 0;
+    for t in tokens {
+        let end = at + t.len as usize;
+        if t.kind == null_syntax::TokenKind::String {
+            return null_syntax::unescape(&text[at..end]);
+        }
+        at = end;
+    }
+    panic!("no name in {text}")
+}
+
+#[test]
+fn a_folder_name_with_quotes_or_backslashes_is_written_escaped_and_reads_back() {
+    for folder in ["Back\\slash", "Quote \"x\""] {
+        let root = scratch("escaped").join(format!("{folder}.sau"));
+        let out = sau(&["new", "empty", root.to_str().unwrap()]);
+        assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+        assert_eq!(project_name(&root), folder);
+        let check = sau(&["check", root.to_str().unwrap()]);
+        assert_eq!(
+            check.status.code(),
+            Some(0),
+            "{folder}: {}{}",
+            text(&check.stdout),
+            text(&check.stderr)
+        );
+    }
+}
+
+#[test]
+fn only_one_sau_suffix_comes_off_the_name() {
+    let root = scratch("double").join("x.sau.sau");
+    let out = sau(&["new", "empty", root.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    assert_eq!(project_name(&root), "x.sau");
+}

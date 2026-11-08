@@ -214,6 +214,8 @@ It refuses a folder in use, a template other than `empty` (with a word on sectio
 - In it, Git's own `check-ignore` ignores `.sau/snapshot.blend`, `view.noll` and `renders/a.png`, and keeps `.sau/ids.noll`, `settings.noll`, `project.noll` and `objects/pier.noll`. `check-attr` puts `media/` and `data/` in LFS.
 - A folder in use, `product-shot`, a nameless `!!!.sau` and no arguments are each refused, and the folder in use is left as it was.
 
+**Fixed after review** (the Null worker's, Null `a63be01`). The folder's name went into `project.noll` unescaped, so `Back\slash.sau` failed `sau check` and `Quote "x".sau` passed with the wrong name. Both names are now written with `null_syntax::escape`, which `sau_cli` now depends on directly (a path dependency already in the workspace; no new outside dependency). Only one `.sau` comes off the name, so `x.sau.sau` gives the project `x.sau`. Tests: `Back\slash` and `Quote "x"` each make a project that `sau check` passes, and its name, read back with Null's lexer and `unescape`, is the folder's name exactly. `x.sau.sau` gives `x.sau`.
+
 ## Next
 
 C-06 and 1d-04e in review.

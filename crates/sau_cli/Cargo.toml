@@ -16,3 +16,4 @@ workspace = true
 
 [dependencies]
 cosmosis = { path = "../cosmosis" }
+null_syntax = { path = "../../../Null/compiler/null_syntax" }
