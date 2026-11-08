@@ -44,6 +44,8 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
   renders/                     rendered images and exports, by default
   .sau/                        cache: the .blend snapshot, thumbnails, undo history
     ids.noll                     the map of handles to persistent IDs: source, kept in Git
+  .blender_project/
+    project.toml                 Blender's own project file, named as the package (S45)
   .gitignore
 ```
 
@@ -53,6 +55,7 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
 - **Composition.** A scene file lists its collections and objects by handle; a collection lists its children. File names never decide order or membership, so reorganising is moving lines, never renaming files.
 - **Components.** Data used by only one object (its mesh, its modifiers, a material nobody else uses) is written in that object's file, as a component keeps its own state. Data used by two or more lives in its type folder. Sau moves a block between the two as sharing changes, as one write-back (proposed; NULL.md, section 20).
 - **One datablock, one place.** A handle is defined once in the project for its kind. Defining it twice is an error that names both files, each with its line.
+- **Also a Blender project** (S45; Sau task 1d-04c). `.blender_project/project.toml` is Blender's own project file, so Blender's Project Settings show the project. Its name is the package's, from `cosmosis.noll`, which is the source: Sau writes the file when the manifest's name differs, changing only its top-level `name` and keeping what Blender's settings add (an OpenColorIO config, a splash image, variables, asset libraries), so a name changed in Project Settings is replaced at the next sync. The file is source and belongs in Git. A project without the folder (the corpus) is still a Blender project while Sau has it open, in memory only; Sau creates no file for it.
 - **References need no imports.** A handle defined in any file is found from every other (S36); a reference that names nothing is an error at its line.
 - **Files that hold no datablocks.** `cosmosis.noll` is the manifest (section 4). `settings.noll`, `view.noll` and `.sau/ids.noll` are Null text with forms of their own, not yet specified; until then they are checked only as UTF-8 text that Null's parser reads (Sau's decision S66). `.sau/ids.noll` is the one file in `.sau/` that is read (Sau's decisions S61 (2) and S66; its form is Sau's task 1b-01f). A link to nothing there is an error, as anywhere in the project; a `.sau` that is a link to a folder is not followed, as no link to a folder is, so the map is not read through it (a note says so).
 - **`view.noll`** holds interface state an AI may read and edit (which camera the viewport looks through, what is selected, which files are open) and is not in Git.
@@ -127,7 +130,8 @@ A package is a Cosmósis project of another kind, with a manifest, versions, and
 
 - `cosmosis.noll`, the package named after the folder in kebab case (`Harbor at Dusk.sau` gives `harbor-at-dusk`);
 - a `project.noll`;
-- the `.gitignore` and `.gitattributes` of section 2's "Version control".
+- the `.gitignore` and `.gitattributes` of section 2's "Version control";
+- `.blender_project/project.toml`, naming the Blender project as the package (task 1d-04c).
 
 The project it makes checks clean. The other templates come with their packages.
 
