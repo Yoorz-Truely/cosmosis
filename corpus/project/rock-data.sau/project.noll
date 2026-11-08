@@ -1,0 +1,6 @@
+// A mesh whose arrays are in data files of their own (Null spec, section 9; Sau task C-10):
+// each named by its line's `file=`, from the folder of the file that names it.
+project "Rock Data" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}

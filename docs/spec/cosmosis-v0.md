@@ -29,6 +29,7 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
   project.noll                   project settings: units, colour management, scenes
   scenes/                      one file per scene: frame range, render settings, its collections
   objects/                     objects, with data, modifiers and constraints used only by them
+    rock.vertices.noll           a mesh's array too large to inline, beside the mesh's file
   collections/                 collections shared between scenes or packaged
   materials/                   shared materials
   nodes/                       shared node groups: geometry, shader, compositor
@@ -38,7 +39,7 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
   scripts/                     optional Python generators (Null, section 13) and text datablocks
   checks/                      checks on the scene and renders (Null, section 14)
   media/<sha256>.<ext>         images, video, sound, fonts, volumes, caches, bakes
-  data/<sha256>.<kind>         level 0 geometry too large to inline (Null, section 9)
+  data/<sha256>.<kind>         binary data a project opts into, such as a scan (Null, section 9)
   view.noll                      where the project was left: workspaces, viewport, selection, open files
   settings.noll                  optional settings for this project only, over the user's own
   renders/                     rendered images and exports, by default
@@ -55,6 +56,7 @@ Harbor at Dusk.sau/            a folder; macOS shows it as one document
 - **One datablock, one place.** A handle is defined once in the project for its kind. Defining it twice is an error that names both files, each with its line.
 - **References need no imports.** A handle defined in any file is found from every other (S36); a reference that names nothing is an error at its line.
 - **Files that hold no datablocks.** `cosmosis.noll` is the manifest (section 4). `settings.noll`, `view.noll` and `.sau/ids.noll` are Null text with forms of their own, not yet specified; until then they are checked only as UTF-8 text that Null's parser reads (Sau's decision S66). `.sau/ids.noll` is the one file in `.sau/` that is read (Sau's decisions S61 (2) and S66; its form is Sau's task 1b-01f). A link to nothing there is an error, as anywhere in the project; a `.sau` that is a link to a folder is not followed, as no link to a folder is, so the map is not read through it (a note says so).
+- **Data files** (Null, section 9; Sau's decision S74 (2); task C-10). A mesh's array too large to write inline is a Null file of its own, one element per line, holding one `array` node (`array mesh @rock vertices [ … ]`), named by its line's `file=` with a path from the folder of the file that names it (`vertices file="rock.vertices.noll" count=… bounds=…`), usually beside it. It is never read as a datablock file, only through its line, and `sau fmt` writes it one element per line. `sau check` reports, each at the line: a path that leaves the project (`cosmosis-data-file-outside`), names a file in `media/` or `data/`, whose files are named by their contents (`cosmosis-data-file-place`), names no file (`cosmosis-data-file-missing`) or names a file that is not a data file (`cosmosis-data-file-not-data`); a data file whose `array` node names another owner or array (`cosmosis-data-file-header`); and a data file named by two lines (`cosmosis-data-file-twice`). Where the project holds the line's array in another data file, the help names it, and that file is not reported again. A line's owner is its datablock's handle as Null reads it, written or made from the display name (S18). A data file no line names is an error at the file (`cosmosis-data-file-unnamed`). These take the place of Null's own matching by the `array` node, so each mistake is one error.
 - **`view.noll`** holds interface state an AI may read and edit (which camera the viewport looks through, what is selected, which files are open) and is not in Git.
 
 ### Ignored names
@@ -140,7 +142,8 @@ The project it makes checks clean. The other templates come with their packages.
 | `sau dev <project>` | Like `npx convex dev`: watch the project, check every save, apply it to the open Sau or a headless one, and report changes and errors as they happen |
 | `sau watch <query>` | Subscribe to a live value (an object's world position, a polygon count, the diagnostics, a capture from a camera) and print it each time it changes |
 | `sau check` | Parse and check every file, with diagnostics |
-| `sau fmt` | Write the project's Null files in canonical form (built, Sau task C-07): Null's canonical printer, `null_print::canonical`, for every datablock file, in Blender's schema order with comments kept; the manifest's fields in section 4's order; `settings.noll`, `view.noll` and `.sau/ids.noll` in the formatter's layout only. Formatting twice changes nothing. `--check` writes nothing and fails, listing them, when a file is not canonical. The corpus is kept canonical |
+| `sau fmt` | Write the project's Null files in canonical form (built, Sau task C-07): Null's canonical printer, `null_print::canonical`, for every datablock file, in Blender's schema order with comments kept, then a line holding its property's default left out unless a comment says why it is written (`null_print::without_defaults`, Sau task C-09); the manifest's fields in section 4's order; `settings.noll`, `view.noll` and `.sau/ids.noll` in the formatter's layout only. Formatting twice changes nothing. `--check` writes nothing and fails, listing them, when a file is not canonical. The corpus is kept canonical |
+| `sau rename @old @new [path]` | Rename a datablock's handle in every file that names it (built, Sau task 1b-01h, decision S17), with Null's `null_check::rename` (Null, section 7, "Renaming a handle"). The datablock keeps its persistent ID: `.sau/ids.noll`, when the project has one, holds the ID under the new handle. Every check comes before any write: each changed file's text is staged beside its target, written through a link as write-back writes it, then renamed over it. The map goes first, never through a link, and then the files in their paths' order, so a running Sau that loads between two renames sees either nothing changed (the map ahead of the files) or files that fail the check, never every file renamed with the map behind. An entry's block of sub-object entries (S73) moves with it. Refused, with nothing written: a handle two kinds share, a new handle the kind already has, a file with syntax errors, a map that exists but cannot be read or has a line it cannot use, and a `.sau` or map that is a link |
 | `sau convert` | `.blend` to a project and back; asset libraries to packages |
 | `sau import` / `sau export` | Any format Blender reads or writes, into or out of the project |
 | `sau render` | Render stills, animations and passes, headless |

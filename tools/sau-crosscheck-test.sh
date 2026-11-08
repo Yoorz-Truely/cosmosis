@@ -1,7 +1,9 @@
 #!/bin/bash
 # Tests tools/sau-crosscheck.sh (Sau task 0-12) in throwaway clones of this checkout: a public
-# signature Sau's crates call, changed, fails the check with the compiler's error; with no Sau
-# beside the clone, the check is skipped and passes. Slow (it builds Sau's crates twice), so it
+# signature Sau's crates call, changed, fails the check with the compiler's error; a dependency
+# added to a crate Sau uses fails it with the change Sau's Cargo.lock needs, which, applied, lets
+# Sau's crates build `--locked`, while Sau's own lock is untouched (task 0-20); with no Sau beside
+# the clone, the check is skipped and passes. Slow (it builds Sau's crates twice), so it
 # is run by hand: tools/sau-crosscheck-test.sh <Null|Cosmosis>. The same file is in Null and
 # Cosmósis.
 set -euo pipefail
@@ -10,8 +12,10 @@ root=$(git rev-parse --show-toplevel)
 case $name in
 # A function Sau's sau_core calls given one more parameter, which this repository's own
 # libraries still build with: only Sau's call breaks.
-Null) file=compiler/null_print/src/project.rs fn=write_transform ;;
-Cosmosis) file=crates/cosmosis/src/layout.rs fn=find_root ;;
+# And a crate Sau uses, given a dependency Sau's lock already holds (so it resolves offline), on
+# which that crate did not depend: Sau's lock needs one line more.
+Null) file=compiler/null_print/src/project.rs fn=write_transform crate=compiler/null_syntax ;;
+Cosmosis) file=crates/cosmosis/src/layout.rs fn=find_root crate=crates/cosmosis ;;
 *) echo "usage: tools/sau-crosscheck-test.sh <Null|Cosmosis>" >&2 && exit 2 ;;
 esac
 scratch=$(mktemp -d)
@@ -42,6 +46,39 @@ grep -q "^error\[E0061\]" <<<"$out" && grep -q -e "--> sau_core/src/" <<<"$out" 
   exit 1
 }
 echo "sau-crosscheck-test: a changed signature fails: $(grep -m1 '^error\[E' <<<"$out")"
+
+# A new dependency: the check fails with the lock diff and changes no lock of Sau's; the diff,
+# applied to Sau's committed lock, lets Sau's crates build --locked against this change.
+git -C "$scratch/with/$name" checkout -q -- "$file"
+sau_lock=$(cd "$root/../Sau/sau/crates" && pwd -P)/Cargo.lock
+before=$(shasum "$sau_lock")
+manifest=$scratch/with/$name/$crate/Cargo.toml
+grep -q '^serde_json' "$manifest" && {
+  echo "sau-crosscheck-test: $crate already depends on serde_json; pick another" >&2
+  exit 1
+}
+sed -i '' 's/^\[dependencies\]$/[dependencies]\nserde_json = "1"/' "$manifest"
+grep -q '^serde_json = "1"$' "$manifest"
+if out=$(cd "$scratch/with/$name" && tools/sau-crosscheck.sh "$name" 2>&1); then
+  echo "sau-crosscheck-test: a new dependency passed:" >&2
+  echo "$out" >&2
+  exit 1
+fi
+diff=$scratch/with/$name/target/sau-crosscheck/Cargo.lock.diff
+if ! grep -q "needs this change" <<<"$out" || ! grep -q '^+ "serde_json",$' "$diff"; then
+  echo "sau-crosscheck-test: failed without the lock diff:" >&2
+  echo "$out" >&2
+  exit 1
+fi
+[ "$(shasum "$sau_lock")" = "$before" ] || {
+  echo "sau-crosscheck-test: the check changed Sau's own Cargo.lock" >&2
+  exit 1
+}
+tree=$scratch/with/$name/target/sau-crosscheck/tree
+(cd "$tree/Sau" && git apply "$diff")
+RUSTC_WRAPPER="$root/tools/build-guard.py" CARGO_TARGET_DIR="$scratch/with/$name/target/sau-crosscheck/target" \
+  cargo check --locked --workspace --all-targets --quiet --manifest-path "$tree/Sau/sau/crates/Cargo.toml"
+echo "sau-crosscheck-test: a new dependency fails with the lock diff ($(grep -c '^[+-] ' "$diff") line(s)), which, applied, builds --locked"
 
 # With no Sau beside it: skipped, and passing.
 mkdir "$scratch/without"

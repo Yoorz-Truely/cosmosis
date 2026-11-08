@@ -106,6 +106,7 @@ dependencies = [
  "null_check",
  "null_syntax",
  "null_value",
+ "serde_json",
 ]
 
 [[package]]
@@ -176,6 +177,7 @@ name = "sau_cli"
 version = "0.0.0"
 dependencies = [
  "cosmosis",
+ "null_check",
  "null_print",
  "null_syntax",
 ]
