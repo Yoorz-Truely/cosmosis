@@ -6,10 +6,16 @@
 //! handle defined in one file resolves in another (Null spec, section 7). `cosmosis.noll` is
 //! Cosmósis's manifest, read by [`crate::manifest`], and is left out, as are the files whose
 //! forms are their own ([`holds_datablocks`]: `settings.noll`, `view.noll`, `.sau/ids.noll`).
+//!
+//! With it goes Null's raw table, `schema/null-raw.json` (task C-11), so a datablock's `raw` block
+//! of DNA fields is checked against DNA: an unknown field, a value its type cannot hold, a list
+//! of another length (Null spec, section 19). While Null holds only the table's placeholder, the
+//! blocks are not checked and a note says so.
 
 use std::sync::OnceLock;
 
 use null_check::Schema;
+use null_check::raw::RawTable;
 use null_syntax::{FileId, Severity as NullSeverity};
 
 use crate::diagnostic::{Diagnostic, Severity};
@@ -19,17 +25,74 @@ use crate::tree::Span;
 /// The schema's text, as Null holds it.
 const SCHEMA: &str = include_str!("../../../../Null/schema/null-schema-project.json");
 
-/// The schema, read once.
+/// The raw table's text, as Null holds it: the DNA fields each struct's `raw` block may write
+/// (Null spec, section 19; Sau's task 1d-05b).
+const RAW: &str = include_str!("../../../../Null/schema/null-raw.json");
+
+/// The raw table (task C-11), or `None` while Null holds its placeholder, which lists no struct
+/// until a build of Sau writes the table (`just schema-sync`). Read as a table, the placeholder
+/// would refuse every raw field, so until then `raw` blocks are not checked against DNA and
+/// `sau check` says so ([`raw_unchecked`]).
+pub fn raw_table() -> Option<&'static RawTable> {
+    static T: OnceLock<Option<RawTable>> = OnceLock::new();
+    T.get_or_init(|| {
+        let table = RawTable::from_json(RAW).expect("Null's schema/null-raw.json reads");
+        (!table.structs.is_empty()).then_some(table)
+    })
+    .as_ref()
+}
+
+/// The schema, read once, with the raw table where Null holds one ([`raw_table`]).
 pub fn schema() -> &'static Schema {
     static S: OnceLock<Schema> = OnceLock::new();
     S.get_or_init(|| {
-        Schema::from_json(SCHEMA).expect("Null's schema/null-schema-project.json reads")
+        let schema =
+            Schema::from_json(SCHEMA).expect("Null's schema/null-schema-project.json reads");
+        match raw_table() {
+            Some(raw) => schema.with_raw(raw.clone()),
+            None => schema,
+        }
     })
+}
+
+/// A note, at the first `raw` block of the project, when the schema has no raw table to check
+/// such blocks against (task C-11); `None` when there is a table or no `raw` block.
+pub fn raw_unchecked(schema: &Schema, sources: &[SourceFile]) -> Option<Diagnostic> {
+    if schema.raw.is_some() {
+        return None;
+    }
+    for f in sources.iter().filter(|f| holds_datablocks(&f.path)) {
+        let parse = null_syntax::parse(&f.text);
+        let raw = parse
+            .document()
+            .nodes()
+            .flat_map(|n| n.children())
+            .find(|c| c.name() == "raw");
+        if let Some(r) = raw {
+            let at = r.name_token().map_or(r.span(), |t| t.span);
+            return Some(
+                Diagnostic::note(
+                    "cosmosis-raw-unchecked",
+                    "`raw` blocks are not checked against DNA: Null's raw table \
+                     (`schema/null-raw.json`) is a placeholder until a build of Sau writes it",
+                )
+                .in_file(&f.path)
+                .at(f.text.as_bytes(), Span::new(at.start, at.end))
+                .with_help("`just schema-sync` in Sau, after a build, writes the table"),
+            );
+        }
+    }
+    None
 }
 
 /// Null's checker over `sources`, the project's Null files but the manifest, as Cosmósis's
 /// diagnostics. Files with syntax errors are still checked, as far as their tree goes.
 pub fn check(sources: &[SourceFile]) -> Vec<Diagnostic> {
+    check_with(schema(), sources)
+}
+
+/// [`check`] against `schema`, such as one with a raw table of a test's own.
+pub fn check_with(schema: &Schema, sources: &[SourceFile]) -> Vec<Diagnostic> {
     let files: Vec<&SourceFile> = sources
         .iter()
         .filter(|f| holds_datablocks(&f.path))
@@ -40,7 +103,7 @@ pub fn check(sources: &[SourceFile]) -> Vec<Diagnostic> {
         .enumerate()
         .map(|(i, p)| (FileId(i as u32), p))
         .collect();
-    null_check::check(schema(), &ids)
+    let mut out: Vec<Diagnostic> = null_check::check(schema, &ids)
         .into_iter()
         .map(|d| {
             let file = files[d.primary.file.0 as usize];
@@ -82,5 +145,7 @@ pub fn check(sources: &[SourceFile]) -> Vec<Diagnostic> {
             }
             out
         })
-        .collect()
+        .collect();
+    out.extend(raw_unchecked(schema, sources));
+    out
 }
