@@ -17,8 +17,5 @@ workspace = true
 [dependencies]
 cosmosis = { path = "../cosmosis" }
 null_syntax = { path = "../../../Null/compiler/null_syntax" }
-
-[dev-dependencies]
-# Canonical order, for the corpus's beyond-the-slice projects printing back unchanged (Sau task
-# 1b-03g).
+# Null's canonical printer, for `sau fmt` (Sau task C-07). MIT.
 null_print = { path = "../../../Null/compiler/null_print" }
