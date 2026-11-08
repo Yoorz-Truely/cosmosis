@@ -33,6 +33,12 @@ if [ "$(cat "$tree/Sau/.sau-crosscheck-head" 2>/dev/null)" != "$head" ]; then
   if git -C "$sau" cat-file -e HEAD:source/blender/blenkernel/intern/unit.cc 2>/dev/null; then
     paths+=(source/blender/blenkernel/intern/unit.cc) # read by sau_core's build (task 1c-01g)
   fi
+  # Blender sources Sau's crates read at compile time through include_str! or include_bytes!,
+  # such as sau_core's kinds tests reading the bridge's table (task 1b-01o).
+  while IFS= read -r p; do
+    paths+=("$p")
+  done < <(git -C "$sau" grep -ohE 'include_(str|bytes)!\("[^"]*source/blender/[^"]*"' HEAD -- sau/crates |
+    sed -E 's|.*(source/blender/[^"]*)"|\1|' | sort -u)
   git -C "$sau" archive HEAD "${paths[@]}" | tar -x -C "$tree/Sau"
   echo "$head" >"$tree/Sau/.sau-crosscheck-head"
 fi
