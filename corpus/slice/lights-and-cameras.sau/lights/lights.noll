@@ -4,7 +4,6 @@ object @point "Point" {
 }
 
 light @point-light "Point" {
-  type point
   color [1 0.85 0.7]
   energy 800W
   shadow-soft-size 0.25m

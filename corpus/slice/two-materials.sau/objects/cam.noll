@@ -5,5 +5,4 @@ object @cam "Camera" {
 }
 
 camera @cam-lens "Camera" {
-  lens 50mm
 }

@@ -213,7 +213,8 @@ const FMT_HELP: &str = "Usage: sau fmt [--check] [path]
 Writes every Null file of the project holding <path> (default: the current folder) in canonical
 form, with Null's canonical printer: each block's lines and each line's key=values in Blender's
 schema order, Null's forms where the property they write stands, comments kept with their lines,
-then the formatter's layout (Null spec, section 15). The manifest's fields go in the order of
+then the formatter's layout, and a line holding its property's default left out unless a comment
+is on it or just above it (Null spec, section 15). The manifest's fields go in the order of
 Cosmósis spec section 4; settings.noll, view.noll and .sau/ids.noll get the layout only. A file that does not parse keeps its order. Formatting twice
 changes nothing.
 
@@ -255,7 +256,9 @@ fn fmt(args: &[String]) -> ExitCode {
         // Datablock files in the schema's order; the others, whose forms are their own, in the
         // formatter's layout alone (S66).
         let text = if layout::holds_datablocks(&file.path) {
-            null_print::canonical(&file.text, schema)
+            // Then defaults left out (Sau task C-09, Null spec section 15): a line of its own
+            // holding its property's default goes, unless a comment says why it is written.
+            null_print::without_defaults(&null_print::canonical(&file.text, schema), schema)
         } else if file.path == Path::new(MANIFEST_FILE) {
             // The manifest's fields in the spec's order (section 4), then the layout.
             null_print::format(&cosmosis::manifest::canonical_order(&file.text))
