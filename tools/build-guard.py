@@ -2,7 +2,7 @@
 """Keep builds from overheating or saturating this Mac, across every agent and worktree.
 
 Every compile of Sau, Null and Cosmosis goes through this script: Blender's C and C++
-compiles through CMake's compiler launcher (`just build` sets it, in front of ccache), and
+compiles through CMake's compiler launcher (`just build` sets it), and
 Rust compiles through cargo's `build.rustc-wrapper` (each repository's `.cargo/config.toml`).
 Each compile takes one of a few machine-wide slots: lock files that the system frees when
 the compiler exits or is killed. The number of slots shrinks when macOS reports thermal
@@ -15,7 +15,7 @@ in their tools/ folders; `just check` in Sau fails when a copy differs.
   build-guard.py status                          thermal state, load, slots in use
   build-guard.py wait                            block while thermal pressure is heavy
 
-Settings (environment): SAU_BUILD_SLOTS (default 10), SAU_BUILD_QOS (utility, background
+Settings (environment): SAU_BUILD_SLOTS (default 4), SAU_BUILD_QOS (utility, background
 or default; default utility), SAU_BUILD_GUARD=0 to bypass for one command.
 """
 
@@ -47,7 +47,7 @@ def thermal_level():
 
 
 def base_slots():
-    return max(1, int(os.environ.get("SAU_BUILD_SLOTS", "10")))
+    return max(1, int(os.environ.get("SAU_BUILD_SLOTS", "4")))
 
 
 def slot_limit():
@@ -99,7 +99,7 @@ def gated(args):
         return False
     if "--crate-name" in args:  # rustc from cargo; "___" marks cargo's target-info probe
         return "___" not in args
-    return "-c" in args  # a C, C++ or Objective-C compile, usually through ccache
+    return "-c" in args  # a C, C++ or Objective-C compile
 
 
 def wrap(cmd):

@@ -1,6 +1,6 @@
 object @cube "Cube" {
-  location [0m 0m 1m]
   data mesh @cube-mesh
+  location [0m 0m 1m]
 }
 
 // Used by this object only, so written in its file (Cosmósis spec, section 2).

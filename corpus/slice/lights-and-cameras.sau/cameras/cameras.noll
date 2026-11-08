@@ -1,7 +1,7 @@
 object @wide "Wide" {
+  data camera @wide-lens
   location [8m -8m 4m]
   rotation-euler [70deg 0deg 45deg]
-  data camera @wide-lens
 }
 
 camera @wide-lens "Wide" {
@@ -9,13 +9,13 @@ camera @wide-lens "Wide" {
 }
 
 object @close "Close" {
+  data camera @close-lens
   location [2m -2m 1.5m]
   rotation-euler [85deg 0deg 45deg]
-  data camera @close-lens
 }
 
 camera @close-lens "Close" {
-  lens 105mm
   clip-start 0.05m
   clip-end 50m
+  lens 105mm
 }

@@ -1,7 +1,7 @@
 object @shot-cam "Camera" {
+  data camera @shot-cam-lens
   location [7m -7m 5m]
   rotation-euler [63deg 0deg 45deg]
-  data camera @shot-cam-lens
 }
 
 camera @shot-cam-lens "Camera" {

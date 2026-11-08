@@ -1,6 +1,6 @@
 object @pyramid "Pyramid" {
-  location [0m 0m 0m]
   data mesh @pyramid-mesh
+  location [0m 0m 0m]
 }
 
 // Faces list vertex indices counter-clockwise seen from outside, so normals point out.

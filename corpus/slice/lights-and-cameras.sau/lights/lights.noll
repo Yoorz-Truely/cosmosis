@@ -1,48 +1,48 @@
 object @point "Point" {
-  location [3m 0m 3m]
   data light @point-light
+  location [3m 0m 3m]
 }
 
 light @point-light "Point" {
   type point
-  energy 800W
   color [1 0.85 0.7]
+  energy 800W
   shadow-soft-size 0.25m
 }
 
 object @sun "Sun" {
-  rotation-euler [45deg 0deg -30deg]
   data light @sun-light
+  rotation-euler [45deg 0deg -30deg]
 }
 
 light @sun-light "Sun" {
   type sun
-  energy 2.5
   angle 0.5deg
+  energy 2.5
 }
 
 object @spot "Spot" {
+  data light @spot-light
   location [-3m -3m 4m]
   rotation-euler [45deg 0deg -45deg]
-  data light @spot-light
 }
 
 light @spot-light "Spot" {
   type spot
   energy 1500W
-  spot-size 40deg
   spot-blend 0.2
+  spot-size 40deg
 }
 
 object @area "Area" {
+  data light @area-light
   location [0m 3m 3m]
   rotation-euler [-45deg 0deg 0deg]
-  data light @area-light
 }
 
 light @area-light "Area" {
   type area
+  energy 300W
   shape disk
   size 1.5m
-  energy 300W
 }

@@ -1,0 +1,3 @@
+# The changelog only gains lines: two branches that each add an entry merge by keeping both
+# (task 0-17 in Sau's board). An entry both branches changed is kept twice, to settle by hand.
+CHANGELOG.md merge=union
