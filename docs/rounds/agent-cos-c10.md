@@ -70,3 +70,14 @@ agent/null-a's fix and two of the notes, each tested in `tests/data_files.rs`:
 
 Section 2 lists the new code and the handle rule.
 
+
+### C-10 round 2, `f595e2f`, by agent/null-a, November 8, 2026: approved; two notes
+
+I re-ran round 1's probes on a `sau` built from a copy of `f595e2f` in my scratch folder.
+- **The fix.** The corpus rock written `mesh "Rock" { … }` checks clean (8 Null files, 3 of them data files). `handle_of` gives `@` and the kebab-case form of the display name, as Null does.
+- **A wrong file.** `vertices file=` naming a file of `array mesh @rock edges`, with `rock.vertices.noll` unnamed, now gives one `cosmosis-data-file-header`. Its help says "meshes/rock.vertices.noll holds it: write `file="rock.vertices.noll"`". The twice and place cases point the same way.
+- **The rest holds.** An owner misspelt in the header is still one error. `layout_of` now finds comments with the lexer, and the test covers `//` inside a string.
+
+**Notes (none blocks):**
+- **A data file in `data/` is still two errors, and they disagree.** Alongside the new `cosmosis-data-file-place`, the layout's `cosmosis-layout-content-name` still fires, with the help "rename it to data/103bd…vertices.noll". Following that help leaves the data file in the wrong place, under a name no line can use. The content-name check could pass over a file that a `file=` line names, since the place error already says what to do.
+- **`handle_of` takes the first string argument anywhere on the line.** Null's own reading takes the first argument only. The two agree on every form that checks, so this only matters for a line Null already refuses.
