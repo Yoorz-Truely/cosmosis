@@ -255,7 +255,13 @@ fn fmt(args: &[String]) -> ExitCode {
     for file in &found.sources {
         // Datablock files in the schema's order; the others, whose forms are their own, in the
         // formatter's layout alone (S66).
-        let text = if layout::holds_datablocks(&file.path) {
+        let text = if layout::holds_datablocks(&file.path)
+            && cosmosis::data_files::is_data_file(&file.text)
+        {
+            // A data file: one element per line (task C-10, Null spec section 9), or as it is
+            // where it holds a comment the layout would move.
+            cosmosis::data_files::layout_of(&file.text).unwrap_or_else(|| file.text.clone())
+        } else if layout::holds_datablocks(&file.path) {
             // Then defaults left out (Sau task C-09, Null spec section 15): a line of its own
             // holding its property's default goes, unless a comment says why it is written.
             null_print::without_defaults(&null_print::canonical(&file.text, schema), schema)
@@ -375,9 +381,21 @@ fn check(args: &[String]) -> ExitCode {
     }
     let plural = |n: usize| if n == 1 { "" } else { "s" };
     let (n, c) = (found.sources.len(), found.content_files);
+    let data = found
+        .sources
+        .iter()
+        .filter(|f| {
+            layout::holds_datablocks(&f.path) && cosmosis::data_files::is_data_file(&f.text)
+        })
+        .count();
+    let data = match data {
+        0 => String::new(),
+        1 => ", 1 of them a data file".to_string(),
+        d => format!(", {d} of them data files"),
+    };
     let m = manifest.expect("no errors means the manifest was read");
     println!(
-        "sau check: {}: package \"{}\" ({}, Null format {}): {n} Null file{} check, {c} content file{}",
+        "sau check: {}: package \"{}\" ({}, Null format {}): {n} Null file{} check{data}, {c} content file{}",
         root.display(),
         m.name,
         m.kind.as_str(),

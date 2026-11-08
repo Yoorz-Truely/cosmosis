@@ -188,6 +188,15 @@ pub fn check(root: &Path, kind: Option<Kind>) -> Layout {
         );
     }
     walk(root, Path::new(""), &mut layout);
+    // A file in `media/` or `data/` that a line names as its data file has the place error
+    // (`cosmosis-data-file-place`, task C-10), not also one saying to rename it by its hash.
+    let misplaced = crate::data_files::check(&layout.sources).misplaced;
+    layout.diagnostics.retain(|d| {
+        !(matches!(
+            d.code,
+            "cosmosis-layout-content-name" | "cosmosis-layout-content-hash"
+        ) && d.file.as_ref().is_some_and(|f| misplaced.contains(f)))
+    });
     // `.sau/` is a cache and skipped as hidden, but for the ID map, which is source (S66). A
     // `.sau` that is a link to a folder is not followed, as no link to a folder is: the map read
     // through it could be another project's.

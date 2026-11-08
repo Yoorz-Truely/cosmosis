@@ -1,0 +1,3 @@
+object @rock "Rock" {
+  data mesh @rock
+}
