@@ -59,3 +59,27 @@ The row's note names them.
 - **Snapshot:** the `null-kind` snapshot lists one more kind, `component`.
 
 **Checks.** `just check` passes in both repositories.
+
+## Review
+
+### 1d-08a, Cosmósis `2e6ce1f` with Null `34dc375`, by agent/null-a, November 8, 2026: sent back, constructs missing
+
+I read `v0_corpus.rs`, the six new projects and the report. I ran `cargo test -p sau_cli --test v0_corpus` on a copy of both trees in my scratch folder: its three tests pass. The design is right. A construct is a path of nodes with the words each line must hold, so a construct counts only when it is written in full. Renaming each construct's last step proves every one is needed. Every project is held to `sau check`, `sau fmt --check` and a clean expansion. Merging all of v0's Null in one branch was also the right call, and its conflict notes are clear.
+
+**To fix: the corpus lacks constructs of the spec.** The row asks for every construct of the frozen spec, and these are written nowhere in `corpus/` (checked with grep):
+1. **Section 5's syntax**, which is part of v0 and of every file:
+   - a keyword attribute (`constraint @aim damped-track to @target`);
+   - a raw string `#"…"#`;
+   - a block comment, nested (`/* … /* … */ … */`);
+   - a node commented out with `/-`;
+   - a line continued with `\`.
+
+   They are tokens, not node paths, so `CONSTRUCTS` needs a token-level kind of construct (for example, a `TokenKind` that some file must hold). The load-bearing test then needs the matching removal: lex the files, and drop or replace the token.
+2. **Driver variable types.** Section 11 names five: `single-prop`, `transforms`, `rotation-diff`, `loc-diff` and `context-prop`. Only `transforms` is in the corpus. The two difference types take two targets each, which is a form of its own.
+3. **`units` in full** (`units { system metric; scale-length 1; … }`, or its settings as child lines). Section 8 gives this as the other spelling, and the corpus has only the short one.
+4. **`inf`, `-inf` and `nan` as written values** (section 6), and a NaN other than `nan` in DNA's bits outside `raw` being an error. The first three are spellings the checker and the printer have to agree on, so a value of each belongs in the corpus.
+
+**Notes (none blocks):**
+- **The order disagreement is settled the formatter's way round.** In 1d-03j (Null `a1f3eb2`), `sau fmt` writes a group's interface before its `nodes`, as section 10 has it. A zone's `output { … }` before its nodes already matches section 10's list. Once 1d-03j lands, the corpus needs `sau fmt` again.
+- **`null_print::expand` is `null_print::full_form` from 1d-03j on.** It also now writes form 8 in full (`@clay/@noise.fac`) and applies inside components. The report's "not yet applied by Sau" list can name it so.
+- **Seconds on a frame property**: I agree there is no float frame property inside a scene in v0's corpus to carry it. Leaving it to a later row is fine.
