@@ -621,8 +621,9 @@ Rewrites the project holding <path> (default: the current folder), written in an
 format, in the format this Sau reads, and writes that format into cosmosis.noll (Sau's decision
 S45). Null's migrations run one format at a time, each changing only what its format changed.
 
-Every file is staged before any is replaced, and cosmosis.noll goes last, so a stop part-way
-leaves the old format named and `sau migrate` finishes the work. Refused, with nothing written:
+It lifts one format at a time: each step's files are staged before any is replaced, and then
+cosmosis.noll is raised by one, so a stop part-way leaves that step's format named and
+`sau migrate` repeats that step alone, which leaves the files it rewrote as they are. Refused, with nothing written:
 a format newer than this Sau reads, a format no migration reads, and a file with syntax errors.
 The handle map (.sau/ids.noll) and view.noll keep their own forms and are not rewritten.
 
@@ -688,35 +689,33 @@ fn migrate(args: &[String]) -> ExitCode {
         );
         return ExitCode::FAILURE;
     }
-    let migrated = match cosmosis::migrate::project(
-        &manifest,
-        &found.sources,
-        null_check::migrate::MIGRATIONS,
-    ) {
-        Ok(Some(m)) => m,
-        Ok(None) => unreachable!("an older format has steps or an error"),
-        Err(found) => {
-            report(&found);
-            eprintln!("sau migrate: nothing was changed");
-            return ExitCode::FAILURE;
-        }
-    };
-    match cosmosis::migrate::write(&root, &migrated) {
-        Ok(written) => {
-            println!(
-                "sau migrate: Null format {} to {newest} ({}): {} file{} rewritten",
-                migrated.from,
-                migrated.steps.join("; "),
-                written.len(),
-                if written.len() == 1 { "" } else { "s" }
-            );
-            for f in written {
-                println!("  {}", f.display());
+    match cosmosis::migrate::run(&root, null_check::migrate::MIGRATIONS, newest) {
+        Ok(done) => {
+            for d in &done {
+                println!(
+                    "sau migrate: Null format {} to {} ({}): {} file{} rewritten",
+                    d.from,
+                    d.from + 1,
+                    d.what,
+                    d.written.len(),
+                    if d.written.len() == 1 { "" } else { "s" }
+                );
+                for f in &d.written {
+                    println!("  {}", f.display());
+                }
             }
             ExitCode::SUCCESS
         }
-        Err(e) => {
-            eprintln!("sau migrate: {e}; run `sau migrate` again to finish");
+        Err(cosmosis::migrate::RunError::Refused(found)) => {
+            report(&found);
+            eprintln!("sau migrate: nothing was changed");
+            ExitCode::FAILURE
+        }
+        Err(cosmosis::migrate::RunError::Io { done, error }) => {
+            let at = done.last().map_or_else(String::new, |d| {
+                format!(" (it is in Null format {} now)", d.from + 1)
+            });
+            eprintln!("sau migrate: {error}{at}; run `sau migrate` again to finish");
             ExitCode::FAILURE
         }
     }

@@ -49,3 +49,28 @@ agent/cosmosis-a's branch for 1d-04d, the `null-format` number and its migration
   - its help and usage.
 
 `just check` passes in both repositories.
+
+## After review (agent/null-b's note on the board)
+
+**A stopped run applied the whole chain again.** The fix is to write one format at a time, so a run repeats only the step it stopped in.
+- The problem: `project` ran every step from the old format in memory and wrote the result with the manifest last. A run stopped part-way left the old format named, so the next run gave the files it had already finished the whole chain again. With step 0→1 renaming `a` to `b` and step 1→2 renaming `c` to `a`, a finished file's new `a` became a second `b`.
+- The fix: `cosmosis::migrate::run` writes one format at a time.
+  - `step` gives one step's changed files and the manifest raised by one.
+  - `write` puts that step's files in place, then the manifest.
+  - `run` repeats this, reading the project again each time.
+- A stop now leaves that step's format named, so the next run repeats that step alone, and never an earlier one. The step leaves a file it already rewrote as it is.
+- The whole chain is checked before the first write, so a gap changes nothing.
+- `sau migrate` runs `run` and lists each step it wrote.
+
+**One step may not chain or swap its renames.** `null_check::migrate::chained` finds `a`→`b` beside `b`→`c` (or `b`→`a`) in the same kind and block. `rename_properties` panics on such a list, and the docs of `Rename` say why: a chain is two steps. A test runs every shipped step, so a chain fails there first.
+
+**Tests added:**
+- Cosmósis, the review's chain stopped part-way, in two places:
+  - inside step 1→2: one file written, the manifest at 1;
+  - inside step 0→1: one file written, the manifest at 0.
+
+  Both finish with each file holding `b 1` and `a 2`.
+- Cosmósis: a chain with a gap is refused with nothing written.
+- Null: a chain and a swap are refused; the same names in another kind are not a chain.
+
+**For the row:** the compile-time assertion in `manifest.rs` is Cosmósis's. When Null raises `FORMAT`, Cosmósis's build stops until the manifest has an error for an older format that names `sau migrate`.
