@@ -91,7 +91,7 @@ fn the_corpus_rock_checks_clean_with_its_data_files_counted() {
         String::from_utf8_lossy(&out.stderr)
     );
     assert!(
-        stdout.contains("8 Null files check, 3 of them data files"),
+        stdout.contains("9 Null files check, 3 of them data files"),
         "{stdout}"
     );
 }

@@ -1,0 +1,5 @@
+scene @harbour "Harbour" {
+  units metric scale=1 length=m rotation=deg
+  object @buoy
+  object @mooring
+}

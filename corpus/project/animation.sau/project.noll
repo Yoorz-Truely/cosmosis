@@ -1,0 +1,6 @@
+// Animation and drivers (Null spec, section 11; Sau task 1d-08a): a short-form action with an
+// f-curve modifier, a layered full-form action played by an NLA strip, and a driver.
+project "Animation" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}

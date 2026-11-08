@@ -1,0 +1,12 @@
+light @lamp-light "Lamp" {
+  energy 800W
+  action @flicker slot=@lamp
+}
+
+light @dial-lamp "Dial Lamp" {
+  energy driver="spin * 100" {
+    var spin transforms {
+      target @dial transform-type=rot-z transform-space=world-space
+    }
+  }
+}

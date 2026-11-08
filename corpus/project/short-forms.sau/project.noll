@@ -1,0 +1,8 @@
+// Short forms (Null spec, section 17; Sau's decision S35; task 1d-08a): a handle made from the
+// name, a quoted name left out, settings on their owner's line, a bare boolean, `units`' short
+// form, `slot=` left out, an action's one layer and strip left out, and a path's owner left
+// out in its own block.
+project "Short Forms" {
+  units metric scale=1 length=m rotation=deg
+  scene @harbour
+}

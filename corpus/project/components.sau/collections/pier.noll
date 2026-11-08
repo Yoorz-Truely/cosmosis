@@ -1,0 +1,6 @@
+collection @pier "Pier" {
+  use @plank @plank count=20 {
+    location [0m n*25cm 0.35m]
+  }
+  override @plank.7 { state liquid }
+}

@@ -1,0 +1,42 @@
+object @lid "Lid" {
+  data mesh @lid-mesh
+  parent none
+  matrix-parent-inverse [[1 0 0 2m] [0 1 0 0m] [0 0 1 0m] [0 0 0 1]]
+  modifier @bevel bevel "Bevel" { width 4mm; segments 3 }
+  modifier @thin decimate "Thin" {
+    decimate-type dissolve
+    delimit [normal material]
+  }
+  modifier @stacked nodes "Stacked" { node-group @stack }
+  constraint @aim damped-track "Aim" {
+    target @dial
+    track-axis track-negative-z
+  }
+}
+
+mesh @lid-mesh "Lid" { primitive cube size=1m }
+
+object @dial "Dial" { rotation-euler [0deg 0deg 45deg] }
+
+object @rig "Rig" {
+  data armature @rig-bones
+  bone @spine "Spine" {
+    constraint @reach kinematic "IK" {
+      target @lid
+      chain-count 2
+    }
+    rotation-mode xyz
+  }
+}
+
+armature @rig-bones "Rig"
+
+object @view "View" {
+  data camera @view-lens
+  location [0m -8m 2m]
+}
+
+camera @view-lens "View" {
+  clip-start 10cm
+  lens 35mm
+}

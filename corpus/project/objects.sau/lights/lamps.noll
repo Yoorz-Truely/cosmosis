@@ -1,0 +1,23 @@
+object @spot "Spot" { data light @spot-light }
+
+light @spot-light "Spot" {
+  type spot
+  color #ffcc88
+  energy 1kW
+  spot-size 30deg
+}
+
+object @sun "Sun" { data light @sun-light }
+
+light @sun-light "Sun" {
+  type sun
+  energy 3
+}
+
+object @area "Area" { data light @area-light }
+
+light @area-light "Area" {
+  type area
+  energy 200W
+  size 50cm
+}

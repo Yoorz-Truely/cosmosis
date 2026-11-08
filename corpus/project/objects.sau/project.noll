@@ -1,0 +1,7 @@
+// Objects and values (Null spec, sections 6 to 8; Sau task 1d-08a): modifiers, constraints and
+// pose bones; every light type; nested collections; each written form of a value: a unit, a
+// colour, an enum flag set, a matrix, a byte list, an empty pointer, seconds at a frame rate.
+project "Objects" {
+  units metric scale=1 length=m rotation=deg
+  scene @stage
+}

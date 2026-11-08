@@ -1,0 +1,7 @@
+// Node trees (Null spec, section 10; Sau task 1d-08a): a material's nodes with a frame, links
+// and its layout; geometry groups with an interface, a panel, zones and a group node; a
+// geometry nodes modifier; a compositor group a scene uses.
+project "Node Trees" {
+  units metric scale=1 length=m rotation=deg
+  scene @shot
+}
