@@ -2,7 +2,9 @@
 """Commit code only after `just check` passed on that very tree (task 0-10).
 
 `just check` calls `start <key>` first and `pass <key>` last. `pass` records the tree the check
-ran on in `work/check/passed`, but only if the files did not change while it ran. The
+ran on in `work/check/passed`, but only if no code changed while it ran: documents may change
+meanwhile (board commits and reports land in Sau's main checkout all day, task 0-13), since
+they may differ from a checked tree anyway. The
 commit-msg hook calls `require`: by then pre-commit's fixers have re-staged what they changed,
 so the index is what will be committed. It refuses a commit that touches code unless its staged
 tree has such a record. "The tree" is every file that is not ignored, as `git add -A` would
@@ -91,13 +93,22 @@ def passed(key, cwd=None, quiet=False):
     marker.unlink()
     now = working_tree(cwd)
     if now != began:
+        # Only code that changed while the check ran stops the record (task 0-13): documents may
+        # differ from a checked tree anyway, so the tree the check began on is recorded.
+        sau = is_sau(top(cwd))
+        changed = [p for p in git("diff", "--name-only", "-z", began, now, cwd=cwd).split("\0") if p]
+        code = [p for p in changed if is_code(p, sau)]
+        if code:
+            if not quiet:
+                print(
+                    "check-record: code changed while the check ran (" + ", ".join(code[:5]) + "), so this "
+                    "pass is not recorded; run `just check` again before committing code",
+                    file=sys.stderr,
+                )
+            return 0
         if not quiet:
-            print(
-                "check-record: files changed while the check ran, so this pass is not recorded; "
-                "run `just check` again before committing code",
-                file=sys.stderr,
-            )
-        return 0
+            print(f"check-record: documents changed while the check ran ({', '.join(changed[:3])}); the code did not")
+        now = began
     log = s / "passed"
     lines = log.read_text().splitlines() if log.exists() else []
     lines = [x for x in lines if not x.startswith(now + " ")][-(KEEP - 1) :]
@@ -240,6 +251,30 @@ def scenario(sau, me, expect):
         (repo / "scratch.rs").unlink()
         check(edit_during=lambda: src.write_text("fn a() { d() }\n"))
         expect(f"{tag}: code edited while its check ran", commit("code"), False)
+        # Documents changed while the check ran, as board commits and reports land in Sau's main
+        # checkout (task 0-13): the check is still recorded, and the code commits.
+        src.write_text("fn a() { during() }\n")
+        board = repo / "docs" / "TASKS.md"
+        report = repo / "docs" / "rounds" / "agent-x.md"
+
+        def documents_land():
+            board.write_text("| T-1 | doing |\n")
+            report.parent.mkdir(exist_ok=True)
+            report.write_text("A reviewer's section.\n")
+            run("add", "docs/TASKS.md")
+            run("commit", "-q", "-m", "Tasks: claim T-1", "--", "docs/TASKS.md")
+
+        check(edit_during=documents_land)
+        expect(f"{tag}: code checked while the board and a report changed", commit("code"), True)
+        src.write_text("fn a() { both() }\n")
+
+        def documents_and_code():
+            board.write_text("| T-1 | review |\n")
+            (repo / "late.rs").write_text("fn late() {}\n")
+
+        check(edit_during=documents_and_code)
+        expect(f"{tag}: a code file added while its check ran, with documents", commit("code"), False)
+        (repo / "late.rs").unlink()
         check()
         expect(f"{tag}: the same code after a check that saw no edit", commit("code"), True)
         doc.write_text("More notes.\n")
