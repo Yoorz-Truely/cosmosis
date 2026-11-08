@@ -9,11 +9,19 @@ mod layout;
 mod manifest;
 #[path = "manifest_fields.rs"]
 mod manifest_fields;
+#[path = "migrate.rs"]
+mod migrate;
 #[path = "raw.rs"]
 mod raw;
 
 /// The test files of this folder, each a module above.
-const MODULES: &[&str] = &["layout.rs", "manifest.rs", "manifest_fields.rs", "raw.rs"];
+const MODULES: &[&str] = &[
+    "layout.rs",
+    "manifest.rs",
+    "manifest_fields.rs",
+    "migrate.rs",
+    "raw.rs",
+];
 
 #[test]
 fn every_test_file_is_a_module() {
