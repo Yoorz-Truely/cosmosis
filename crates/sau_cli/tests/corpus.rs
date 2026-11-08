@@ -83,7 +83,7 @@ const CONSTRUCTS: [(&str, &[Step]); 19] = [
         &[
             ("material", None),
             ("nodes", None),
-            ("node", Some("principled-bsdf")),
+            ("node", Some("bsdf-principled")),
         ],
     ),
     (
@@ -91,7 +91,7 @@ const CONSTRUCTS: [(&str, &[Step]); 19] = [
         &[
             ("material", None),
             ("nodes", None),
-            ("node", Some("principled-bsdf")),
+            ("node", Some("bsdf-principled")),
             ("base-color", None),
         ],
     ),
@@ -100,7 +100,7 @@ const CONSTRUCTS: [(&str, &[Step]); 19] = [
         &[
             ("material", None),
             ("nodes", None),
-            ("node", Some("principled-bsdf")),
+            ("node", Some("bsdf-principled")),
             ("roughness", None),
         ],
     ),
@@ -187,7 +187,7 @@ const WHOLE: [&str; 2] = [
      object @sun {\n  data light @sunlight\n}\n\
      mesh @box {\n  primitive cube size=2m\n}\n\
      mesh @tri {\n  vertices [[0m 0m 0m] [1m 0m 0m] [0m 1m 0m]]\n  polygons [[0 1 2]]\n}\n\
-     material @clay {\n  nodes {\n    node @bsdf principled-bsdf {\n      base-color [0.8 0.3 0.2 1]\n      \
+     material @clay {\n  nodes {\n    node @bsdf bsdf-principled {\n      base-color [0.8 0.3 0.2 1]\n      \
      roughness 0.7\n    }\n  }\n}\n\
      camera @lens {\n  lens 50mm\n}\n\
      light @sunlight {\n  type sun\n}\n",

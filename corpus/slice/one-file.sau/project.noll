@@ -39,7 +39,7 @@ mesh @wedge "Wedge" {
 
 material @paint "Paint" {
   nodes {
-    node @bsdf principled-bsdf {
+    node @bsdf bsdf-principled {
       base-color [0.1 0.4 0.8 1]
       roughness 0.35
     }

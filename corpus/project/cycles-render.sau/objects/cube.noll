@@ -1,0 +1,9 @@
+object @cube "Cube" {
+  data mesh @cube-mesh
+  location [0m 0m 1m]
+  cycles { use-motion-blur off }
+}
+
+mesh @cube-mesh "Cube" {
+  primitive cube size=2m
+}
