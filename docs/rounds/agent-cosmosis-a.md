@@ -199,9 +199,24 @@ Each of the layout's earlier rules and errors already had a test, now listed wit
 
 **The row's "Done when"** asks for a misspelt modifier property. The project schema holds every modifier's properties (`bevel-modifier` and the others), but the line that writes a modifier, `modifier @bevel bevel { … }`, is a sub-object form the checker reads only from Sau 1d-07. Until then it is "an object has no `modifier`" (the third test shows it is an error, not a silent pass). So I showed the same thing, a misspelling the slice's schema could not know, on a world. The modifier case belongs with 1d-07: lead's call whether to amend this row's wording.
 
+## 1d-04e: `sau new` writes the shipped Git files
+
+**What changed.** `sau new empty <path>` is built, the first `sau new` (spec section 6). It makes the folder, which must not exist yet or be empty, and writes into it:
+- `cosmosis.noll`, the package named after the folder in kebab case, without `.sau`;
+- a `project.noll`;
+- `.gitignore` and `.gitattributes` from `cosmosis::templates` (1d-04b), byte for byte.
+
+It refuses a folder in use, a template other than `empty` (with a word on section 6), and a folder name with no kebab-case spelling, each with exit 2. `--help` describes it, and `sau --help` no longer marks `new` "not built yet". The manifest and `.blender_project/` kept in step are 1d-04c's.
+
+**Measured** (`crates/sau_cli/tests/new.rs`):
+- `sau new empty "Harbor at Dusk.sau"` makes package `harbor-at-dusk`, and both Git files are exactly the templates.
+- `sau check` passes on the result.
+- In it, Git's own `check-ignore` ignores `.sau/snapshot.blend`, `view.noll` and `renders/a.png`, and keeps `.sau/ids.noll`, `settings.noll`, `project.noll` and `objects/pier.noll`. `check-attr` puts `media/` and `data/` in LFS.
+- A folder in use, `product-shot`, a nameless `!!!.sau` and no arguments are each refused, and the folder in use is left as it was.
+
 ## Next
 
-C-06 in review.
+C-06 and 1d-04e in review.
 
 ## Also done
 
