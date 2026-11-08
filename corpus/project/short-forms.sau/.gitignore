@@ -1,0 +1,13 @@
+# Written as .gitignore into a new Cosmósis project (Cosmósis spec, section 2, "Version
+# control"). Everything else in the project is source.
+
+# Sau's cache: the .blend snapshot, thumbnails, undo history. Not the map of handles to
+# persistent IDs, which is source (Sau's decisions S61 and S66).
+.sau/*
+!.sau/ids.noll
+
+# Where the project was left: workspaces, viewport, selection, open files.
+/view.noll
+
+# Rendered images and exports.
+/renders/

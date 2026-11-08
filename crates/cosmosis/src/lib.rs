@@ -7,6 +7,7 @@
 
 pub mod data_files;
 pub mod diagnostic;
+pub mod ids;
 pub mod layout;
 pub mod manifest;
 pub mod schema_check;

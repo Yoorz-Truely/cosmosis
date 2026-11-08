@@ -2,7 +2,7 @@ object @tower-base "Tower Base" {
   data mesh @tower-base-mesh
   material @clay
   modifier @build nodes "Build" { node-group @tower }
-  modifier @settle nodes "Settle" { node-group @settle }
+  modifier @settling nodes "Settle" { node-group @settle }
 }
 
 mesh @tower-base-mesh "Tower Base" { primitive cube size=1m }
