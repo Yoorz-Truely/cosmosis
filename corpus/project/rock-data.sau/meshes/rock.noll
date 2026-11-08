@@ -1,0 +1,5 @@
+mesh @rock "Rock" {
+  vertices file="rock.vertices.noll" count=4 bounds=[[0m 0m 0m] [1m 2m 0.5m]]
+  polygons file="rock.polygons.noll" count=2
+  attribute @heat point float "heat" file="rock.heat.noll" count=4 bounds=[-0 4]
+}

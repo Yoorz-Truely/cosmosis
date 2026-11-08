@@ -40,8 +40,20 @@ pub fn check(sources: &[SourceFile]) -> Vec<Diagnostic> {
         .enumerate()
         .map(|(i, p)| (FileId(i as u32), p))
         .collect();
-    null_check::check(schema(), &ids)
+    // Data files against the lines that name them, by path (task C-10), in place of Null's
+    // matching by header.
+    let data = crate::data_files::check(sources);
+    let replaced = |d: &null_syntax::Diagnostic| {
+        d.code == null_check::codes::HANDLE
+            && data.replaced.iter().any(|(path, span)| {
+                *path == files[d.primary.file.0 as usize].path
+                    && span.start == d.primary.span.start
+                    && span.end == d.primary.span.end
+            })
+    };
+    let mut out: Vec<Diagnostic> = null_check::check(schema(), &ids)
         .into_iter()
+        .filter(|d| !replaced(d))
         .map(|d| {
             let file = files[d.primary.file.0 as usize];
             let severity = match d.severity {
@@ -82,5 +94,7 @@ pub fn check(sources: &[SourceFile]) -> Vec<Diagnostic> {
             }
             out
         })
-        .collect()
+        .collect();
+    out.extend(data.diagnostics);
+    out
 }
