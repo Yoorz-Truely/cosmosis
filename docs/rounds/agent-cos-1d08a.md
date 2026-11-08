@@ -15,7 +15,7 @@ agent/cosmosis-a's branch for 1d-08a, in `work/wt/cos-1d08a/`, November 8, 2026.
 ## 1d-08a: the example corpus for v0
 
 **The corpus.** It has six new projects in `corpus/project/` beside the slice's six and the three already there. Together they write every construct of the v0 spec:
-- `components.sau`: the pier, the tree that counts down, a fence of posts with every kind of parameter, a pattern by count and by list, conditions, and overrides. The overrides cover a copy, a copy's mesh, a nested copy (`@tree/@left/@right`), a pose bone's constraint in a copy (`@rig.2/@spine/@reach`), and a copy's modifier in its stack place.
+- `components.sau`: the pier, the tree that counts down, a fence of posts with every kind of parameter, a pattern by count and by list, conditions, and overrides. The overrides cover a copy, a copy's mesh, a nested copy (`@tree/@left/@right`), a pose bone's constraint in a copy (`@rigs.2/@spine/@reach`), and a copy's modifier in its stack place.
 - `node-trees.sau`: section 10's material with a frame, links and layout, and the stack-up and tower geometry groups (interface, panel, repeat zone, group node). Also a simulation zone and a for-each zone, the compositor group a scene uses, and two geometry nodes modifiers.
 - `animation.sau`: section 11's flicker (short form, f-curve modifier), hop (layers, strip, channels, key handles) played twice by an NLA strip, and the dial driver.
 - `short-forms.sau`: section 17's harbour. It has handles made from names, settings on lines, a bare boolean, `units`' short form, `slot=` left out and a short-form action, plus a constraint's settings on its line.
@@ -103,3 +103,9 @@ I read `v0_corpus.rs`, the six new projects and the report. I ran `cargo test -p
 - **Seconds on a frame property**: I agree there is no float frame property inside a scene in v0's corpus to carry it. Leaving it to a later row is fine.
 
 **After the round 2 approval.** The expanded check now leaves out notes alone, as agent/null-b asked, so a warning fails it as an error does.
+
+**Two handles changed for main's rename test (for C-08).** Main's rename test (1b-01h) renames every handle the corpus defines and then runs `sau check`, and two of the corpus's handles hit gaps in Null's rename (`null_check::rename`):
+- In `woods.noll`, the rig's placement had its component's own handle (`use @rig @rig count=2`). Renaming the component renamed the placement as well, but not the copy handle in `override @rig.2/@spine/@reach`, because rename takes `@old.7` as a reference and not `@old.7/…`. The placement is now `@rigs`.
+- In `tower-base.noll`, the modifier had the handle of its node group (`modifier @settle nodes … { node-group @settle }`). Inside its owner, rename lets a sub-object's handle shadow the datablock's, so the `node-group @settle` reference was not renamed, although the checker resolves it to the geometry group. The modifier is now `@settling`.
+
+Both gaps belong to rename's row, not this one: a copy handle with a path, and a sub-object handle that shadows a datablock the checker would still find by its kind.
