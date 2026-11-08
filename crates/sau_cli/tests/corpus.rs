@@ -231,3 +231,58 @@ fn a_construct_commented_out_does_not_count() {
         whole_with(|t| t.replace("  parent @cam\n", "  /- parent @cam\n  // parent @cam\n"));
     assert_eq!(missing(&files), ["object parent"]);
 }
+
+#[test]
+fn every_corpus_project_ignores_what_the_template_ignores() {
+    // S66: `.sau/ids.noll` is source, kept in Git, while the rest of `.sau/` is a cache. Every
+    // corpus project, slice and beyond, has the `.gitignore` `sau new` writes, so a Sau that
+    // writes an ID map into a copy of one keeps it in Git as a new project would.
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus");
+    let mut checked = 0;
+    for group in ["slice", "project"] {
+        for e in fs::read_dir(root.join(group)).unwrap() {
+            let p = e.unwrap().path();
+            if !p.join("cosmosis.noll").is_file() {
+                continue;
+            }
+            assert_eq!(
+                fs::read_to_string(p.join(".gitignore")).unwrap_or_default(),
+                cosmosis::templates::GITIGNORE,
+                "{}'s .gitignore is not the template's",
+                p.display()
+            );
+            checked += 1;
+        }
+    }
+    assert!(checked >= 7, "{checked} projects");
+    // And Git reads it so: in a fresh repository holding a corpus project, the ID map is kept
+    // and the rest of the cache is not.
+    let repo =
+        Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gitignore-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&repo);
+    fs::create_dir_all(repo.join(".sau")).unwrap();
+    fs::copy(
+        root.join("slice/one-cube.sau/.gitignore"),
+        repo.join(".gitignore"),
+    )
+    .unwrap();
+    let git = |args: &[&str]| {
+        Command::new("git")
+            .args(args)
+            .current_dir(&repo)
+            .output()
+            .unwrap()
+    };
+    git(&["init", "-q"]);
+    let ignored = git(&[
+        "check-ignore",
+        "--no-index",
+        ".sau/ids.noll",
+        ".sau/snapshot.blend",
+    ]);
+    assert_eq!(
+        String::from_utf8_lossy(&ignored.stdout),
+        ".sau/snapshot.blend\n"
+    );
+    fs::remove_dir_all(&repo).unwrap();
+}
