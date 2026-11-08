@@ -19,6 +19,8 @@ workspace = true
 [dependencies]
 cosmosis = { path = "../cosmosis" }
 null_syntax = { path = "../../../Null/compiler/null_syntax" }
+# Null's rename across files, for `sau rename` (Sau task 1b-01h). MIT.
+null_check = { path = "../../../Null/compiler/null_check" }
 # Null's canonical printer, for `sau fmt` (Sau task C-07). MIT.
 null_print = { path = "../../../Null/compiler/null_print" }
 
