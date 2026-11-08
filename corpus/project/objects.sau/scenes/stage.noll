@@ -1,0 +1,24 @@
+scene @stage "Stage" {
+  camera @view
+  frame-start 1
+  frame-end 300
+  units {
+    system metric
+    scale-length 1
+    length-unit centimeters
+    system-rotation degrees
+  }
+  fps 30
+  fps-base 1.001
+  object @lid
+  object @dial
+  object @rig
+  object @view
+  collection @props "Props" {
+    collection @lamps "Lamps" {
+      object @spot
+      object @sun
+      object @area
+    }
+  }
+}

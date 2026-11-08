@@ -1,0 +1,6 @@
+// An object with a `raw` block: DNA fields no RNA property reads, by DNA's own names and types
+// (Null spec, section 19; Sau tasks 1d-05b and C-11).
+project "Raw Fields" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}

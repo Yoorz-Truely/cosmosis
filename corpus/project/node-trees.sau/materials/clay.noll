@@ -1,0 +1,14 @@
+material @clay "Clay" {
+  nodes {
+    node @noise tex-noise { scale 4 }
+    node @ramp val-to-rgb { fac @noise.fac }
+    node @box frame "Surface" { label "Surface" }
+    node @bsdf bsdf-principled "Skin" {
+      base-color @ramp.color
+      roughness 0.6
+      parent @box
+    }
+    node @out output-material { surface @bsdf.bsdf }
+  }
+  layout { @noise [-600 0]; @ramp [-350 0]; @box [-120 60]; @bsdf [-100 0]; @out [200 0] }
+}

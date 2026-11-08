@@ -1,0 +1,8 @@
+object "Buoy" {
+  modifier @round bevel width=4mm segments=3
+  constraint @watch damped-track target=@mooring
+  hide-render
+  action @bob
+}
+
+object "Mooring" { location [0m 4m 0m] }

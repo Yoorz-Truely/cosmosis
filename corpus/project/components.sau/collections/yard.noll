@@ -1,0 +1,7 @@
+collection @yard "Yard" {
+  use @fence @north { posts 5 }
+  use @post @gate each=[1.2m 1.5m] as=size { height size; kind square }
+  override @north/@row.2 { angle 30deg }
+  override @gate.1/@post-mesh { primitive cylinder radius=10cm }
+  override @gate.2 { modifier @ring array { count 7 } }
+}

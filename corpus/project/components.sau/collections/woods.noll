@@ -1,0 +1,6 @@
+collection @woods "Woods" {
+  use @branch @tree { depth 3 }
+  override @tree/@left/@right { length 40cm }
+  use @rig @rig count=2 { }
+  override @rig.2/@spine/@reach { chain-count 3 }
+}

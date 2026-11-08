@@ -1,0 +1,29 @@
+component @post "Post" {
+  param height length
+  param hidden off
+  param finish material @weathered-oak
+  param count 3
+  param angle 15deg
+  param kind round { one-of [round square] }
+  object @post "Post" {
+    data mesh @post-mesh
+    material finish
+    rotation-euler [0deg 0deg angle]
+    modifier @edge bevel { width 2mm }
+    modifier @ring array { count 3 }
+    pass-index count
+    hide-render hidden
+    if "kind == square" { scale [1 1 height/1m] }
+    else { scale [0.5 0.5 height/1m] }
+  }
+  mesh @post-mesh "Post" { primitive cylinder radius=height*0.05 depth=height }
+}
+
+component @fence "Fence" {
+  param posts 4
+  object @fence "Fence" { }
+  if "posts > 2" {
+    use @post @first { height 1m; parent @fence }
+  }
+  use @post @row count=posts { height "(n - 1) * 0.5m + 1m"; location [n*2m 0m 0m] }
+}

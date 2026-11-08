@@ -1,0 +1,9 @@
+object @buoy "Buoy" {
+  location [0m 0m 1m]
+  raw {
+    restore_mode 0
+    col_mask 255
+    collision_boundtype 4
+    constinv [[1 0 0 0] [0 1 0 0] [0 0 1 0] [0 0 0 0x7fa00001]]
+  }
+}
