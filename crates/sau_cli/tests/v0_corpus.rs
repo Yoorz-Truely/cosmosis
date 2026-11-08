@@ -893,10 +893,11 @@ fn every_project_checks_formats_and_expands_clean() {
         let (flat, problems) = null_check::expand(schema, &ids);
         assert!(problems.is_empty(), "{}: {problems:?}", p.display());
         let found = null_check::check_expanded(schema, &flat);
-        // Notes stand (a value outside its range, `inf` and `nan` among them); errors do not.
+        // Notes stand (a value outside its range, `inf` and `nan` among them); errors and
+        // warnings do not.
         let found: Vec<String> = found
             .iter()
-            .filter(|d| d.severity == null_syntax::Severity::Error)
+            .filter(|d| d.severity != null_syntax::Severity::Note)
             .map(|d| {
                 format!(
                     "{}: {}",

@@ -101,3 +101,5 @@ I read `v0_corpus.rs`, the six new projects and the report. I ran `cargo test -p
 - **The order disagreement is settled the formatter's way round.** In 1d-03j (Null `a1f3eb2`), `sau fmt` writes a group's interface before its `nodes`, as section 10 has it. A zone's `output { … }` before its nodes already matches section 10's list. Once 1d-03j lands, the corpus needs `sau fmt` again.
 - **`null_print::expand` is `null_print::full_form` from 1d-03j on.** It also now writes form 8 in full (`@clay/@noise.fac`) and applies inside components. The report's "not yet applied by Sau" list can name it so.
 - **Seconds on a frame property**: I agree there is no float frame property inside a scene in v0's corpus to carry it. Leaving it to a later row is fine.
+
+**After the round 2 approval.** The expanded check now leaves out notes alone, as agent/null-b asked, so a warning fails it as an error does.
