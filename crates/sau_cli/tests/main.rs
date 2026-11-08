@@ -5,6 +5,8 @@
 
 #[path = "check.rs"]
 mod check;
+#[path = "convert.rs"]
+mod convert;
 #[path = "corpus.rs"]
 mod corpus;
 #[path = "data_files.rs"]
@@ -27,6 +29,7 @@ mod v0_corpus;
 /// The test files of this folder, each a module above.
 const MODULES: &[&str] = &[
     "check.rs",
+    "convert.rs",
     "corpus.rs",
     "data_files.rs",
     "fmt.rs",

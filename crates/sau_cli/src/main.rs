@@ -38,7 +38,7 @@ const COMMANDS: [(&str, &str, bool); 16] = [
         "Rename a handle in every file that names it",
         true,
     ),
-    ("convert", "Convert a .blend to a project and back", false),
+    ("convert", "Convert a .blend to a project and back", true),
     (
         "import",
         "Import any format Blender reads into the project",
@@ -121,6 +121,7 @@ fn main() -> ExitCode {
         "new" => new(&args[1..]),
         "fmt" => fmt(&args[1..]),
         "rename" => rename(&args[1..]),
+        "convert" => convert(&args[1..]),
         name => match COMMANDS.iter().find(|c| c.0 == name) {
             Some(_) => {
                 eprintln!("sau: `{name}` is not built yet (Cosmósis spec, section 7)");
@@ -607,4 +608,79 @@ fn rename(args: &[String]) -> ExitCode {
         println!("  {f}");
     }
     ExitCode::SUCCESS
+}
+
+const CONVERT_HELP: &str = "Usage: sau convert <scene.blend> <Scene.sau>
+
+Converts a .blend file into a new project folder (task 1d-05d): Sau opens the file in the
+background and writes every datablock of the kinds it applies through RNA, one Null file per
+datablock in Cosmósis's default layout (scenes/, objects/ with each object's own data, collections/,
+materials/, worlds/, nodes/, and a folder per kind for data several objects share), with the
+manifest, project.noll and the shipped .gitignore and .gitattributes. Interface state (screens,
+workspaces, window managers, brushes) is left out (S61). What is not converted yet is said.
+The folder must not exist or must be empty. The folder is then checked as `sau check` checks.
+
+Sau is the app SAU_APP names (its executable, or a script that runs it).
+
+Exit status: 0 when converted and the folder checks, 1 when not, 2 on wrong usage.
+";
+
+/// `sau convert <scene.blend> <Scene.sau>` (task 1d-05d): Sau converts in the background, then
+/// the folder is checked.
+fn convert(args: &[String]) -> ExitCode {
+    let mut words = Vec::new();
+    for arg in args {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print!("{CONVERT_HELP}");
+                return ExitCode::SUCCESS;
+            }
+            flag if flag.starts_with('-') => {
+                return usage_error(&format!("`sau convert` has no option `{flag}`"));
+            }
+            w => words.push(w),
+        }
+    }
+    let [blend, folder] = words.as_slice() else {
+        return usage_error("`sau convert` takes a .blend file and a project folder");
+    };
+    if !blend.ends_with(".blend") {
+        return usage_error(&format!(
+            "`{blend}` is not a .blend file; `sau convert` converts a .blend into a folder"
+        ));
+    }
+    if !Path::new(blend).is_file() {
+        eprintln!("sau convert: no file {blend}");
+        return ExitCode::FAILURE;
+    }
+    let target = Path::new(folder);
+    if target.exists() && std::fs::read_dir(target).map_or(true, |mut d| d.next().is_some()) {
+        eprintln!("sau convert: {folder} is not an empty folder; nothing was converted");
+        return ExitCode::FAILURE;
+    }
+    let Some(app) = std::env::var_os("SAU_APP") else {
+        eprintln!(
+            "sau convert: set SAU_APP to the Sau app (its executable), which does the converting"
+        );
+        return ExitCode::FAILURE;
+    };
+    let status = std::process::Command::new(&app)
+        .args(["-b", blend, "--convert", folder])
+        .status();
+    match status {
+        Ok(s) if s.success() => {}
+        Ok(s) => {
+            eprintln!("sau convert: Sau stopped ({s}); nothing more was checked");
+            return ExitCode::FAILURE;
+        }
+        Err(e) => {
+            eprintln!("sau convert: cannot run {}: {e}", Path::new(&app).display());
+            return ExitCode::FAILURE;
+        }
+    }
+    if !target.join(MANIFEST_FILE).is_file() {
+        eprintln!("sau convert: Sau wrote no project into {folder}");
+        return ExitCode::FAILURE;
+    }
+    check(&[(*folder).to_string()])
 }
