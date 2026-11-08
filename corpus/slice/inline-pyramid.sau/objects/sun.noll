@@ -1,6 +1,6 @@
 object @sun "Sun" {
-  rotation-euler [40deg 0deg 30deg]
   data light @sun-light
+  rotation-euler [40deg 0deg 30deg]
 }
 
 light @sun-light "Sun" {

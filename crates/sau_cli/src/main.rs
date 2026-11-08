@@ -32,7 +32,7 @@ const COMMANDS: [(&str, &str, bool); 15] = [
         "Check a project's layout and files, with diagnostics",
         true,
     ),
-    ("fmt", "Print files in canonical form", false),
+    ("fmt", "Print files in canonical form", true),
     ("convert", "Convert a .blend to a project and back", false),
     (
         "import",
@@ -114,6 +114,7 @@ fn main() -> ExitCode {
         }
         "check" => check(&args[1..]),
         "new" => new(&args[1..]),
+        "fmt" => fmt(&args[1..]),
         name => match COMMANDS.iter().find(|c| c.0 == name) {
             Some(_) => {
                 eprintln!("sau: `{name}` is not built yet (Cosmósis spec, section 7)");
@@ -208,6 +209,102 @@ fn new(args: &[String]) -> ExitCode {
         return ExitCode::FAILURE;
     }
     println!("sau new: made package \"{name}\" in {path}");
+    ExitCode::SUCCESS
+}
+
+const FMT_HELP: &str = "Usage: sau fmt [--check] [path]
+
+Writes every Null file of the project holding <path> (default: the current folder) in canonical
+form, with Null's canonical printer: each block's lines and each line's key=values in Blender's
+schema order, Null's forms where the property they write stands, comments kept with their lines,
+then the formatter's layout (Null spec, section 15). The manifest's fields go in the order of
+Cosmósis spec section 4; settings.noll, view.noll and .sau/ids.noll get the layout only. A file that does not parse keeps its order. Formatting twice
+changes nothing.
+
+  --check   write nothing: list the files that are not in canonical form
+
+Exit status: 0 when every file is canonical (or was made so), 1 when --check found a file that is
+not, or a file could not be written, 2 on wrong usage.
+";
+
+/// `sau fmt [--check] [path]` (Sau task C-07): the project's files in canonical form.
+fn fmt(args: &[String]) -> ExitCode {
+    let mut path = None;
+    let mut check_only = false;
+    for arg in args {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print!("{FMT_HELP}");
+                return ExitCode::SUCCESS;
+            }
+            "--check" => check_only = true,
+            flag if flag.starts_with('-') => {
+                return usage_error(&format!("`sau fmt` has no option `{flag}`"));
+            }
+            p if path.is_none() => path = Some(p),
+            p => return usage_error(&format!("`sau fmt` takes one path; `{p}` is a second")),
+        }
+    }
+    let root = match layout::find_root(Path::new(path.unwrap_or("."))) {
+        Ok(root) => root,
+        Err(d) => {
+            report(&[*d]);
+            return ExitCode::FAILURE;
+        }
+    };
+    let found = layout::check(&root, None);
+    let schema = schema_check::schema();
+    let mut changed = Vec::new();
+    for file in &found.sources {
+        // Datablock files in the schema's order; the others, whose forms are their own, in the
+        // formatter's layout alone (S66).
+        let text = if layout::holds_datablocks(&file.path) {
+            null_print::canonical(&file.text, schema)
+        } else if file.path == Path::new(MANIFEST_FILE) {
+            // The manifest's fields in the spec's order (section 4), then the layout.
+            null_print::format(&cosmosis::manifest::canonical_order(&file.text))
+        } else {
+            null_print::format(&file.text)
+        };
+        if text == file.text {
+            continue;
+        }
+        if !check_only {
+            // Written through a link to its target, as write-back does (1a-14).
+            if let Err(e) = std::fs::write(root.join(&file.path), &text) {
+                eprintln!("sau fmt: cannot write {}: {e}", file.path.display());
+                return ExitCode::FAILURE;
+            }
+        }
+        changed.push(file.path.display().to_string());
+    }
+    let n = found.sources.len();
+    if check_only {
+        for f in &changed {
+            println!("{f}");
+        }
+        if !changed.is_empty() {
+            eprintln!(
+                "sau fmt --check: {} of {n} Null files in {} are not in canonical form; `sau fmt` writes them",
+                changed.len(),
+                root.display()
+            );
+            return ExitCode::FAILURE;
+        }
+        println!(
+            "sau fmt --check: {n} Null files in {} are canonical",
+            root.display()
+        );
+        return ExitCode::SUCCESS;
+    }
+    for f in &changed {
+        println!("formatted {f}");
+    }
+    println!(
+        "sau fmt: {} of {n} Null files in {} formatted",
+        changed.len(),
+        root.display()
+    );
     ExitCode::SUCCESS
 }
 
