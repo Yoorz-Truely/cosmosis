@@ -18,7 +18,7 @@ use cosmosis::manifest::{MANIFEST_FILE, Manifest};
 use cosmosis::{schema_check, source};
 
 /// Every command in the spec: name, what it does, and whether it is built.
-const COMMANDS: [(&str, &str, bool); 15] = [
+const COMMANDS: [(&str, &str, bool); 16] = [
     ("new", "Start a project from a template", true),
     ("open", "Open a project in Sau", false),
     (
@@ -33,6 +33,11 @@ const COMMANDS: [(&str, &str, bool); 15] = [
         true,
     ),
     ("fmt", "Print files in canonical form", true),
+    (
+        "rename",
+        "Rename a handle in every file that names it",
+        true,
+    ),
     ("convert", "Convert a .blend to a project and back", false),
     (
         "import",
@@ -115,6 +120,7 @@ fn main() -> ExitCode {
         "check" => check(&args[1..]),
         "new" => new(&args[1..]),
         "fmt" => fmt(&args[1..]),
+        "rename" => rename(&args[1..]),
         name => match COMMANDS.iter().find(|c| c.0 == name) {
             Some(_) => {
                 eprintln!("sau: `{name}` is not built yet (Cosmósis spec, section 7)");
@@ -389,4 +395,143 @@ fn report(diagnostics: &[Diagnostic]) {
     for d in diagnostics {
         eprintln!("{d}\n");
     }
+}
+
+const RENAME_HELP: &str = "Usage: sau rename @old @new [path]
+
+Renames the datablock handle @old to @new in every file of the project holding <path> (default:
+the current folder) that names it, as an editor renames a symbol (Sau's decision S17): its
+definition, every reference, every path that starts at it and every pattern's copy of it, and
+nothing that only looks the same (a sub-object or node with that handle, a string, a comment).
+The handle map, .sau/ids.noll, keeps the datablock's ID under the new handle, so its identity in
+Sau and in every .blend stays.
+
+Refused, with nothing written, when @new is not a handle, no datablock is @old, datablocks of two
+kinds share @old, one of the same kind already is @new, or a file has syntax errors.
+
+Exit status: 0 when renamed, 1 when refused, 2 on wrong usage.
+";
+
+/// `sau rename @old @new [path]` (task 1b-01h).
+fn rename(args: &[String]) -> ExitCode {
+    let mut words = Vec::new();
+    for arg in args {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print!("{RENAME_HELP}");
+                return ExitCode::SUCCESS;
+            }
+            flag if flag.starts_with('-') => {
+                return usage_error(&format!("`sau rename` has no option `{flag}`"));
+            }
+            w => words.push(w),
+        }
+    }
+    let (old, new, path) = match words.as_slice() {
+        [old, new] => (*old, *new, "."),
+        [old, new, path] => (*old, *new, *path),
+        _ => return usage_error("`sau rename` takes @old, @new and an optional path"),
+    };
+    let root = match layout::find_root(Path::new(path)) {
+        Ok(root) => root,
+        Err(d) => {
+            report(&[*d]);
+            return ExitCode::FAILURE;
+        }
+    };
+    let found = layout::check(&root, None);
+    let files: Vec<&layout::SourceFile> = found
+        .sources
+        .iter()
+        .filter(|f| layout::holds_datablocks(&f.path))
+        .collect();
+    let parses: Vec<null_syntax::Parse> =
+        files.iter().map(|f| null_syntax::parse(&f.text)).collect();
+    let list: Vec<(null_syntax::FileId, &null_syntax::Parse)> = parses
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (null_syntax::FileId(i as u32), p))
+        .collect();
+    let done = match null_check::rename::rename(&list, old, new) {
+        Ok(done) => done,
+        Err(null_check::rename::RenameError::Unparsed(id)) => {
+            eprintln!(
+                "sau rename: {} has syntax errors; fix them first (`sau check`), so that every reference can be found",
+                files[id.0 as usize].path.display()
+            );
+            return ExitCode::FAILURE;
+        }
+        Err(e) => {
+            eprintln!("sau rename: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    // The handle map, read before anything is written: a line it cannot read would be dropped
+    // when it is written again, so the rename is refused and nothing changes.
+    let map_path = root.join(layout::IDS_FILE);
+    let map = match std::fs::read_to_string(&map_path) {
+        Ok(text) => {
+            let (map, bad) = cosmosis::ids::parse(&text);
+            if !bad.is_empty() {
+                let lines: Vec<String> = bad.iter().map(usize::to_string).collect();
+                eprintln!(
+                    "sau rename: {} has lines it cannot read ({}); fix them first (`sau check`), so that no ID is lost",
+                    layout::IDS_FILE,
+                    lines.join(", ")
+                );
+                return ExitCode::FAILURE;
+            }
+            Some(map)
+        }
+        Err(_) => None,
+    };
+    // Each file's edits, from its end, so earlier spans stay where they were.
+    let mut changed = Vec::new();
+    for (i, file) in files.iter().enumerate() {
+        let mut edits: Vec<_> = done
+            .edits
+            .iter()
+            .filter(|e| e.file.0 as usize == i)
+            .collect();
+        if edits.is_empty() {
+            continue;
+        }
+        edits.sort_by_key(|e| std::cmp::Reverse(e.span.start));
+        let mut text = file.text.clone();
+        for e in edits {
+            text.replace_range(e.span.start..e.span.end, &e.replacement);
+        }
+        // Written through a link to its target, as write-back does (1a-14).
+        if let Err(e) = std::fs::write(root.join(&file.path), &text) {
+            eprintln!("sau rename: cannot write {}: {e}", file.path.display());
+            return ExitCode::FAILURE;
+        }
+        changed.push(file.path.display().to_string());
+    }
+    // The handle map keeps the datablock's ID under its new handle.
+    let mut map_note = String::new();
+    if let Some(mut map) = map
+        && cosmosis::ids::rename(&mut map, &done.kind, old, new)
+    {
+        if let Err(e) = cosmosis::ids::write(&root, &cosmosis::ids::text(&map)) {
+            eprintln!(
+                "sau rename: the files are renamed, but {} is not: {e}",
+                layout::IDS_FILE
+            );
+            return ExitCode::FAILURE;
+        }
+        map_note = format!(", and its ID in {}", layout::IDS_FILE);
+    }
+    println!(
+        "sau rename: {} {old} is {new}: its definition and {} reference{} in {} file{}{map_note}",
+        done.kind,
+        done.references,
+        if done.references == 1 { "" } else { "s" },
+        changed.len(),
+        if changed.len() == 1 { "" } else { "s" },
+    );
+    for f in changed {
+        println!("  {f}");
+    }
+    ExitCode::SUCCESS
 }

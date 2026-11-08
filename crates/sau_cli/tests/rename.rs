@@ -1,0 +1,262 @@
+//! `sau rename` (Sau task 1b-01h, S17) over the corpus: in a copy of each project, every handle a
+//! file defines is renamed in turn. Every changed byte is that handle turned into the new one (or
+//! the new handle written before a display name), the project still passes `sau check`, and the
+//! handle map keeps the datablock's ID under the new handle.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use null_syntax::ast::{Entry, Value};
+use null_syntax::names::to_kebab_case;
+
+fn sau(args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_sau"))
+        .args(args)
+        .output()
+        .unwrap()
+}
+
+fn text(bytes: &[u8]) -> String {
+    String::from_utf8(bytes.to_vec()).unwrap()
+}
+
+/// Every project of the corpus, slice and project alike.
+fn projects() -> Vec<PathBuf> {
+    let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus");
+    let mut v = Vec::new();
+    for set in ["slice", "project"] {
+        for e in fs::read_dir(base.join(set)).unwrap() {
+            let p = e.unwrap().path();
+            if p.join("cosmosis.noll").is_file() {
+                v.push(p);
+            }
+        }
+    }
+    v.sort();
+    assert!(v.len() >= 6, "{v:?}");
+    v
+}
+
+/// Every file under `dir`, relative to `root`, with its text.
+fn files(root: &Path, dir: &Path, out: &mut Vec<(PathBuf, String)>) {
+    for e in fs::read_dir(dir).unwrap() {
+        let p = e.unwrap().path();
+        if p.is_dir() {
+            files(root, &p, out);
+        } else {
+            let rel = p.strip_prefix(root).unwrap().to_path_buf();
+            out.push((rel, fs::read_to_string(&p).unwrap()));
+        }
+    }
+    out.sort();
+}
+
+fn copy(from: &Path, to: &Path) {
+    fs::create_dir_all(to).unwrap();
+    for e in fs::read_dir(from).unwrap() {
+        let p = e.unwrap().path();
+        let dest = to.join(p.file_name().unwrap());
+        if p.is_dir() {
+            copy(&p, &dest);
+        } else {
+            fs::copy(&p, &dest).unwrap();
+        }
+    }
+}
+
+/// The (kind, handle) of every top-level datablock the project's `.noll` files define, written or
+/// made from the display name, with whether it was written.
+fn definitions(project: &Path) -> Vec<(String, String, bool)> {
+    let mut all = Vec::new();
+    files(project, project, &mut all);
+    let mut out = Vec::new();
+    for (path, source) in &all {
+        if path.extension().is_none_or(|x| x != "noll")
+            || ["cosmosis.noll", "settings.noll", "view.noll"].contains(&path.to_str().unwrap())
+            || path.starts_with(".sau")
+        {
+            continue;
+        }
+        let parse = null_syntax::parse(source);
+        for node in parse.document().nodes().filter(|n| n.name() != "project") {
+            let first = node.entries().find_map(|e| match e {
+                Entry::Arg(v) => Some(v),
+                _ => None,
+            });
+            let (handle, written) = match first {
+                Some(Value::Word(t)) if t.text.starts_with('@') => (t.text.to_string(), true),
+                Some(v @ (Value::Str(_) | Value::Raw(_))) => {
+                    let name = v.as_string().unwrap();
+                    (format!("@{}", to_kebab_case(&name).unwrap()), false)
+                }
+                _ => continue,
+            };
+            out.push((node.name().into_owned(), handle, written));
+        }
+    }
+    out
+}
+
+/// A handle map with a made-up ID for each definition.
+fn map(defs: &[(String, String, bool)]) -> String {
+    let mut lines: Vec<String> = defs
+        .iter()
+        .enumerate()
+        .map(|(i, (kind, handle, _))| format!("  {kind} {handle} \"{:032x}\"", i + 1))
+        .collect();
+    lines.sort();
+    lines.dedup();
+    format!("ids {{\n{}\n}}\n", lines.join("\n"))
+}
+
+#[test]
+fn every_handle_of_every_corpus_project_renames_cleanly() {
+    static N: AtomicUsize = AtomicUsize::new(0);
+    let (mut renamed, mut refused) = (0, 0);
+    for project in projects() {
+        let defs = definitions(&project);
+        assert!(!defs.is_empty(), "{}", project.display());
+        for (kind, old, written) in &defs {
+            // The kinds sharing this handle: a rename of a shared handle is refused, by design.
+            let kinds = defs.iter().filter(|(_, h, _)| h == old).count();
+            let new = format!("{old}-renamed");
+            let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+                "rename-{}-{}",
+                std::process::id(),
+                N.fetch_add(1, Ordering::Relaxed)
+            ));
+            let _ = fs::remove_dir_all(&dir);
+            copy(&project, &dir);
+            fs::create_dir_all(dir.join(".sau")).unwrap();
+            fs::write(dir.join(".sau/ids.noll"), map(&defs)).unwrap();
+            let mut before = Vec::new();
+            files(&dir, &dir, &mut before);
+
+            let out = sau(&["rename", old, &new, dir.to_str().unwrap()]);
+            let what = format!("{} {kind} {old}", project.display());
+            if kinds > 1 {
+                assert_eq!(
+                    out.status.code(),
+                    Some(1),
+                    "{what}: a shared handle is refused"
+                );
+                assert!(text(&out.stderr).contains("share the handle"), "{what}");
+                let mut after = Vec::new();
+                files(&dir, &dir, &mut after);
+                assert_eq!(before, after, "{what}: a refused rename changes nothing");
+                refused += 1;
+                continue;
+            }
+            assert!(
+                out.status.success(),
+                "{what}: {}{}",
+                text(&out.stdout),
+                text(&out.stderr)
+            );
+            renamed += 1;
+
+            // Every change is the handle made the new one, or the new one before a name.
+            let mut after = Vec::new();
+            files(&dir, &dir, &mut after);
+            assert_eq!(before.len(), after.len(), "{what}");
+            let mut occurrences = 0;
+            for ((path, was), (_, now)) in before.iter().zip(&after) {
+                if path.ends_with("ids.noll") {
+                    continue;
+                }
+                assert!(!was.contains(&new), "{what}: {new} was there already");
+                occurrences += now.matches(new.as_str()).count();
+                // A handle made from the name was written before it: take that out first.
+                let unwritten = if *written {
+                    now.clone()
+                } else {
+                    now.replace(&format!("{new} \""), "\"")
+                };
+                let back = unwritten.replace(new.as_str(), old);
+                assert_eq!(&back, was, "{what}: {} changed otherwise", path.display());
+            }
+            // The definition and each reference the summary counts.
+            let summary = text(&out.stdout);
+            let refs: usize = summary
+                .split("its definition and ")
+                .nth(1)
+                .and_then(|s| s.split(' ').next())
+                .and_then(|n| n.parse().ok())
+                .unwrap_or_else(|| panic!("{what}: {summary}"));
+            assert_eq!(occurrences, refs + 1, "{what}: {summary}");
+            if !written {
+                assert!(
+                    summary.contains(&format!("{kind} {old} is {new}")),
+                    "{what}"
+                );
+            }
+
+            // Still a valid project, with every reference resolving.
+            let check = sau(&["check", dir.to_str().unwrap()]);
+            assert!(
+                check.status.success(),
+                "{what}: sau check after the rename: {}{}",
+                text(&check.stdout),
+                text(&check.stderr)
+            );
+
+            // The map: the same ID, now under the new handle.
+            let ids = fs::read_to_string(dir.join(".sau/ids.noll")).unwrap();
+            let (want, _) = cosmosis::ids::parse(&map(&defs));
+            let (got, bad) = cosmosis::ids::parse(&ids);
+            assert!(bad.is_empty(), "{what}: {ids}");
+            let id = &want[&(kind.clone(), old.clone())];
+            assert_eq!(
+                got.get(&(kind.clone(), new.clone())),
+                Some(id),
+                "{what}: {ids}"
+            );
+            assert!(!got.contains_key(&(kind.clone(), old.clone())), "{what}");
+            assert_eq!(got.len(), want.len(), "{what}");
+            let _ = fs::remove_dir_all(&dir);
+        }
+    }
+    eprintln!("sau rename: {renamed} handles renamed, {refused} shared ones refused");
+    assert!(renamed >= 20, "only {renamed} renames");
+}
+
+#[test]
+fn a_rename_is_refused_when_the_map_has_a_line_it_cannot_read() {
+    let project = projects().into_iter().next().unwrap();
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join(format!("rename-bad-map-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    copy(&project, &dir);
+    let defs = definitions(&dir);
+    let (_, old, _) = &defs[0];
+    fs::create_dir_all(dir.join(".sau")).unwrap();
+    fs::write(
+        dir.join(".sau/ids.noll"),
+        "ids {\n  object @x \"not hex\"\n}\n",
+    )
+    .unwrap();
+    let mut before = Vec::new();
+    files(&dir, &dir, &mut before);
+    let out = sau(&["rename", old, "@fresh-handle", dir.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        text(&out.stderr).contains("cannot read"),
+        "{}",
+        text(&out.stderr)
+    );
+    let mut after = Vec::new();
+    files(&dir, &dir, &mut after);
+    assert_eq!(before, after);
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn rename_takes_two_handles() {
+    let out = sau(&["rename", "@a"]);
+    assert_eq!(out.status.code(), Some(2));
+    let out = sau(&["rename", "--help"]);
+    assert!(out.status.success());
+    assert!(text(&out.stdout).contains("sau rename"));
+}
