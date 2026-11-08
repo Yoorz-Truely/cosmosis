@@ -1,0 +1,9 @@
+object @shot-cam "ShotCam" {
+  data camera @lens
+  location [7m -6m 5m]
+  rotation-euler [63deg 0deg 47deg]
+}
+
+camera @lens "Lens" {
+  lens 50mm
+}
