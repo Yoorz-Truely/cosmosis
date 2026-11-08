@@ -14,9 +14,9 @@ scene @main "Main" {
 }
 
 object @base "Base" {
-  location [0m 0m 0.5m]
   data mesh @base-mesh
   material @paint
+  location [0m 0m 0.5m]
 }
 
 mesh @base-mesh "Base" {
@@ -24,12 +24,12 @@ mesh @base-mesh "Base" {
 }
 
 object @top "Top" {
+  data mesh @wedge
   parent @base
+  material @paint
   location [0m 0m 0.75m]
   rotation-euler [0deg 0deg 45deg]
   scale [0.5 0.5 0.5]
-  data mesh @wedge
-  material @paint
 }
 
 mesh @wedge "Wedge" {
@@ -50,9 +50,9 @@ material @paint "Paint" {
 }
 
 object @cam "Camera" {
+  data camera @cam-lens
   location [4m -4m 3m]
   rotation-euler [65deg 0deg 45deg]
-  data camera @cam-lens
 }
 
 camera @cam-lens "Camera" {
@@ -60,8 +60,8 @@ camera @cam-lens "Camera" {
 }
 
 object @lamp "Lamp" {
-  location [2m -1m 4m]
   data light @lamp-light
+  location [2m -1m 4m]
 }
 
 light @lamp-light "Lamp" {
