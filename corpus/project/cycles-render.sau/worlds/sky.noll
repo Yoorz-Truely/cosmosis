@@ -1,0 +1,4 @@
+world @sky "Sky" {
+  color [0.05 0.05 0.08]
+  cycles { sampling-method automatic }
+}
