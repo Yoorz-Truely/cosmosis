@@ -24,9 +24,10 @@ use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
 use null_syntax::ast::{Entry, Node, Value};
+use null_syntax::names::to_kebab_case;
 
 use crate::diagnostic::Diagnostic;
-use crate::layout::{SourceFile, holds_datablocks};
+use crate::layout::{CONTENT_FOLDERS, SourceFile, holds_datablocks};
 use crate::tree::Span;
 
 /// The node a data file holds.
@@ -129,10 +130,25 @@ fn span(s: null_syntax::Span) -> Span {
 fn lines_in(file: &SourceFile, out: &mut Vec<Line>) {
     let parse = null_syntax::parse(&file.text);
     for top in parse.document().nodes() {
-        let Some(handle) = top.handle() else { continue };
-        let owner = (top.name().into_owned(), handle.text.to_string());
+        let Some(handle) = handle_of(top) else {
+            continue;
+        };
+        let owner = (top.name().into_owned(), handle);
         walk(file, top, &owner, out);
     }
+}
+
+/// The handle a datablock's line defines, as Null's checker reads it: written, or `@` and the
+/// kebab-case form of its display name (Sau's decision S18; `mesh "Rock"` is `@rock`).
+fn handle_of(node: Node<'_>) -> Option<String> {
+    if let Some(h) = node.handle() {
+        return Some(h.text.to_string());
+    }
+    let name = node.args().find_map(|v| match v {
+        Value::Str(_) | Value::Raw(_) => v.as_string(),
+        _ => None,
+    })?;
+    Some(format!("@{}", to_kebab_case(&name)?))
 }
 
 fn walk(file: &SourceFile, node: Node<'_>, owner: &(String, String), out: &mut Vec<Line>) {
@@ -240,28 +256,65 @@ pub fn check(sources: &[SourceFile]) -> Checked {
             );
             continue;
         };
-        let Some(file) = by_path.get(target.as_path()) else {
-            // The data file whose header is this line's, if the project holds one elsewhere.
-            let elsewhere = data.iter().find(|d| {
-                headers
-                    .get(d.path.as_path())
-                    .is_some_and(|(h, _)| *h == line.header)
-            });
-            if let Some(d) = elsewhere {
-                pointed.push(d.path.clone());
+        // Where the line names the wrong file, the file that holds its array, if any, is named
+        // in the help, and is not reported again as a file no line names.
+        let elsewhere = data
+            .iter()
+            .find(|d| {
+                d.path != *target
+                    && headers
+                        .get(d.path.as_path())
+                        .is_some_and(|(h, _)| *h == line.header)
+            })
+            .map(|d| d.path.clone());
+        let instead = |help: String| match &elsewhere {
+            Some(d) => format!(
+                "{} holds it: write `file=\"{}\"`",
+                d.display(),
+                relative(&line.from, d)
+            ),
+            None => help,
+        };
+        if target
+            .components()
+            .next()
+            .is_some_and(|c| CONTENT_FOLDERS.iter().any(|f| c.as_os_str() == *f))
+        {
+            let folder = target
+                .components()
+                .next()
+                .unwrap()
+                .as_os_str()
+                .to_string_lossy();
+            checked.diagnostics.push(
+                at(
+                    "cosmosis-data-file-place",
+                    format!(
+                        "`file=\"{}\"` names a file in {folder}/, which holds files named by their contents; a data file is a Null file named after its mesh and array",
+                        line.written
+                    ),
+                )
+                .with_help(instead(format!(
+                    "move it beside {}, as {}.{}.noll, and name that",
+                    line.from.display(),
+                    line.header.handle.trim_start_matches('@'),
+                    line.header.array.trim_start_matches('@')
+                ))),
+            );
+            if let Some(d) = &elsewhere {
+                pointed.push(d.clone());
             }
-            let help = match elsewhere {
-                Some(d) => format!(
-                    "{} holds it: write `file=\"{}\"`",
-                    d.path.display(),
-                    relative(&line.from, &d.path)
-                ),
-                None => format!(
-                    "the path is from {}/; a data file there holds `{} [ … ]`, one element per line",
-                    line.from.parent().unwrap_or(Path::new("")).display(),
-                    line.header.show()
-                ),
-            };
+            continue;
+        }
+        let Some(file) = by_path.get(target.as_path()) else {
+            if let Some(d) = &elsewhere {
+                pointed.push(d.clone());
+            }
+            let help = instead(format!(
+                "the path is from {}/; a data file there holds `{} [ … ]`, one element per line",
+                line.from.parent().unwrap_or(Path::new("")).display(),
+                line.header.show()
+            ));
             checked.diagnostics.push(
                 at(
                     "cosmosis-data-file-missing",
@@ -301,6 +354,9 @@ pub fn check(sources: &[SourceFile]) -> Checked {
             continue;
         };
         if let Some(&first) = named.get(target) {
+            if let Some(d) = &elsewhere {
+                pointed.push(d.clone());
+            }
             let other = &lines[first];
             let other_source = by_path[other.from.as_path()].text.as_bytes();
             checked.diagnostics.push(
@@ -312,15 +368,18 @@ pub fn check(sources: &[SourceFile]) -> Checked {
                     ),
                 )
                 .with_related(&other.from, other_source, other.value, "first named here")
-                .with_help(format!(
+                .with_help(instead(format!(
                     "give `{}` of {} {} a data file of its own",
                     line.header.array, line.header.kind, line.header.handle
-                )),
+                ))),
             );
             continue;
         }
         named.insert(target.clone(), i);
         if *header != line.header {
+            if let Some(d) = &elsewhere {
+                pointed.push(d.clone());
+            }
             checked.diagnostics.push(
                 at(
                     "cosmosis-data-file-header",
@@ -339,10 +398,10 @@ pub fn check(sources: &[SourceFile]) -> Checked {
                     *header_span,
                     "its `array` node",
                 )
-                .with_help(format!(
+                .with_help(instead(format!(
                     "the data file's first line names its owner and array: `{} [`",
                     line.header.show()
-                )),
+                ))),
             );
         }
     }
@@ -378,7 +437,8 @@ pub fn check(sources: &[SourceFile]) -> Checked {
 /// one `array` node with its list last, or holds a comment, which the layout would move.
 pub fn layout_of(text: &str) -> Option<String> {
     let parse = null_syntax::parse(text);
-    if !parse.errors().is_empty() || text.contains("//") || text.contains("/*") {
+    let comments = null_syntax::lex(text).0.iter().any(|t| t.kind.is_comment());
+    if !parse.errors().is_empty() || comments {
         return None;
     }
     let mut nodes = parse.document().nodes();
@@ -470,6 +530,8 @@ mod tests {
             Some("array mesh @rock vertices [\n  [0m 0m 0m]\n  [1m 0m 0.5m]\n]\n")
         );
         assert_eq!(layout_of("array mesh @rock v [1] // x\n"), None);
+        // `//` in a string is no comment.
+        assert!(layout_of("array mesh @rock @names [\"a//b\" \"c\"]\n").is_some());
         assert_eq!(layout_of("mesh @rock \"Rock\"\n"), None);
     }
 }

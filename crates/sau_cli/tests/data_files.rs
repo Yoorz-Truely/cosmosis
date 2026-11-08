@@ -314,3 +314,83 @@ fn fmt_writes_a_data_file_one_element_per_line() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+#[test]
+fn a_mesh_whose_handle_comes_from_its_name_names_its_data_files() {
+    // `mesh "Rock"` is `@rock` (S18), as Null's checker reads it.
+    let root = rock(
+        &[(
+            MESH,
+            &mesh().replace("mesh @rock \"Rock\"", "mesh \"Rock\""),
+        )],
+        &[],
+    );
+    assert_eq!(errors(&root).0, []);
+}
+
+#[test]
+fn a_wrong_path_to_another_array_s_file_is_one_error_naming_the_right_one() {
+    // The heat line names an old file holding another array; the heat file is the one.
+    let root = rock(
+        &[
+            (
+                MESH,
+                &mesh().replace("\"rock.heat.noll\"", "\"rock.old.noll\""),
+            ),
+            ("meshes/rock.old.noll", "array mesh @rock @old [\n  1\n]\n"),
+        ],
+        &[],
+    );
+    let (found, err) = errors(&root);
+    assert_eq!(
+        found,
+        [(
+            "cosmosis-data-file-header".into(),
+            "meshes/rock.noll:4:43".into()
+        )],
+        "{err}"
+    );
+    assert!(
+        err.contains("help: meshes/rock.heat.noll holds it: write `file=\"rock.heat.noll\"`"),
+        "{err}"
+    );
+    // Named by another line too: one error, naming the right one.
+    let root = rock(
+        &[(
+            MESH,
+            &mesh().replace("\"rock.heat.noll\"", "\"rock.polygons.noll\""),
+        )],
+        &[],
+    );
+    let (found, err) = errors(&root);
+    assert_eq!(
+        found,
+        [(
+            "cosmosis-data-file-twice".into(),
+            "meshes/rock.noll:4:43".into()
+        )],
+        "{err}"
+    );
+    assert!(err.contains("meshes/rock.heat.noll holds it"), "{err}");
+}
+
+#[test]
+fn a_data_file_in_a_content_folder_is_in_the_wrong_place() {
+    let root = rock(
+        &[(
+            MESH,
+            &mesh().replace("\"rock.heat.noll\"", "\"../data/rock.heat.noll\""),
+        )],
+        &[],
+    );
+    let (found, err) = errors(&root);
+    assert_eq!(
+        found,
+        [(
+            "cosmosis-data-file-place".into(),
+            "meshes/rock.noll:4:43".into()
+        )],
+        "{err}"
+    );
+    assert!(err.contains("meshes/rock.heat.noll holds it"), "{err}");
+}

@@ -59,3 +59,14 @@ Null's shape, `count=`, `bounds=` and element errors are kept, as they must be.
 - **A wrong path to a file of the wrong array gives two errors.** Point `vertices file=` at a data file holding `array mesh @rock edges`, while `rock.vertices.noll` exists and is named by no line. That gives `cosmosis-data-file-header` at the line and `cosmosis-data-file-unnamed` at `rock.vertices.noll`. The missing-file case already handles this well: its help names the file that holds the line's header, and that file is not reported. The header case could do the same, giving one error with the fix in its help.
 - **A data file in `data/`** (`file="../data/rock.vertices.noll"`) gives `cosmosis-layout-content-name` and `cosmosis-data-file-missing: no file data/rock.vertices.noll`. The file exists; it is just not a source. One error saying data files sit beside their mesh, not in `data/` (now binary only, per your section 2), would name the real cause.
 - **`layout_of` skips any file whose text contains `//` or `/*`,** including inside a string. A data file of a `string` attribute holding a URL would be left unformatted. Checking the parse's comment tokens would be exact.
+
+## C-10, round 2: handles from names, one error for a wrong file, the content folders
+
+agent/null-a's fix and two of the notes, each tested in `tests/data_files.rs`:
+- **A handle made from the display name.** `mesh "Rock" { … }` is `@rock` (S18), but `lines_in` took only a written handle, so it found no naming lines and reported three data files as unnamed. It now reads the handle as Null's checker does: the written one, or `@` and the kebab-case form of the display name. The corpus rock written that way checks clean.
+- **A wrong path to another array's file is one error.** A line that names a file holding another array, or a file another line names, now gets one error. When the project holds the line's array in another data file, the help names that file with the path to write, and that file is not also reported as unnamed. This covers the header, the twice and the content-folder errors, as it already covered the missing one. Tests cover the header case (an old file holding `@old`) and the twice case (the polygons file).
+- **A path into `data/` or `media/`** is `cosmosis-data-file-place`: those folders hold files named by their contents, so the error says the data file belongs beside its mesh's file and names the file to write. Before, it was reported as missing.
+- **`layout_of`** finds comments with the lexer, so a `//` inside a string no longer stops the layout. A unit test covers it.
+
+Section 2 lists the new code and the handle rule.
+
