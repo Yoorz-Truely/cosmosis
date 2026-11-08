@@ -1,6 +1,6 @@
 object @lamp "Lamp" {
-  location [1m 1m 2.5m]
   data light @lamp-light
+  location [1m 1m 2.5m]
 }
 
 light @lamp-light "Lamp" {

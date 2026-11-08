@@ -1035,3 +1035,140 @@ fn read_dependencies(nodes: &[Node], errors: &mut Vec<ManifestError>) -> Vec<Dep
     }
     out
 }
+
+/// Braces opened minus closed on `line`, outside strings and comments.
+fn depth_change(line: &str) -> i32 {
+    let (mut d, mut in_string, mut escaped) = (0, false, false);
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if in_string {
+            match c {
+                _ if escaped => escaped = false,
+                '\\' => escaped = true,
+                '"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+        match c {
+            '"' => in_string = true,
+            '/' if chars.peek() == Some(&'/') => break,
+            '{' => d += 1,
+            '}' => d -= 1,
+            _ => {}
+        }
+    }
+    d
+}
+
+/// `cosmosis.noll`'s text with the package's fields in [`FIELDS`]' order (`sau fmt`, Sau task
+/// C-07): each field line, or block such as `dependencies { … }`, moves with the comment lines
+/// just above it; a dependency list keeps its own order; a line that is no field comes last, as
+/// written; blank lines inside the package go, as in Null's canonical order. A manifest whose
+/// package is not a block of one field per line (all on its line, or `;`-separated) is left as
+/// it is; its layout is then the formatter's.
+pub fn canonical_order(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(open) = lines
+        .iter()
+        .position(|l| l.starts_with("package ") && l.trim_end().ends_with('{'))
+    else {
+        return text.to_string();
+    };
+    if depth_change(lines[open]) != 1 {
+        return text.to_string();
+    }
+    // The package's lines, in units: comment lines and the field (or block) they stand above.
+    let mut units: Vec<(usize, Vec<&str>)> = Vec::new();
+    let mut pending: Vec<&str> = Vec::new();
+    let mut i = open + 1;
+    let close = loop {
+        let Some(&line) = lines.get(i) else {
+            return text.to_string();
+        };
+        let t = line.trim();
+        if t == "}" {
+            break i;
+        }
+        if t.is_empty() {
+            pending.clear(); // a blank line detaches a comment, as in Null's canonical order
+            i += 1;
+            continue;
+        }
+        if t.starts_with("//") {
+            pending.push(line);
+            i += 1;
+            continue;
+        }
+        if t.contains(';') || t.starts_with('}') {
+            return text.to_string();
+        }
+        let mut unit = std::mem::take(&mut pending);
+        unit.push(line);
+        let mut depth = depth_change(line);
+        i += 1;
+        while depth > 0 {
+            let Some(&inner) = lines.get(i) else {
+                return text.to_string();
+            };
+            unit.push(inner);
+            depth += depth_change(inner);
+            i += 1;
+        }
+        let name = t.split_whitespace().next().unwrap_or("");
+        let key = FIELDS
+            .iter()
+            .position(|f| *f == name)
+            .unwrap_or(FIELDS.len());
+        units.push((key, unit));
+    };
+    if !pending.is_empty() {
+        // Comments just before the closing brace stay there.
+        units.push((usize::MAX, std::mem::take(&mut pending)));
+    }
+    units.sort_by_key(|(key, _)| *key);
+    let mut out: Vec<&str> = lines[..=open].to_vec();
+    out.extend(units.iter().flat_map(|(_, u)| u.iter().copied()));
+    out.extend(&lines[close..]);
+    let mut s = out.join("\n");
+    if text.ends_with('\n') {
+        s.push('\n');
+    }
+    s
+}
+
+#[cfg(test)]
+mod canonical_order_tests {
+    use super::canonical_order;
+
+    #[test]
+    fn fields_in_the_spec_order_with_their_comments() {
+        let mixed = "// The project.\npackage \"p\" {\n  null-format 1\n  // Ours.\n  license \"MIT\"\n\n  dependencies {\n    b \"^1\"\n    a \"^2\"\n  }\n  kind project\n  version 0.1.0 // first\n}\n";
+        assert_eq!(
+            canonical_order(mixed),
+            "// The project.\npackage \"p\" {\n  kind project\n  version 0.1.0 // first\n  null-format 1\n  // Ours.\n  license \"MIT\"\n  dependencies {\n    b \"^1\"\n    a \"^2\"\n  }\n}\n"
+        );
+        let once = canonical_order(mixed);
+        assert_eq!(canonical_order(&once), once);
+    }
+
+    #[test]
+    fn a_package_on_one_line_or_with_semicolons_is_left_as_it_is() {
+        for text in [
+            "package \"p\" { null-format 1 }\n",
+            "package \"p\" {\n  null-format 1; kind project\n}\n",
+            "package \"p\" {\n  null-format 1\n",
+        ] {
+            assert_eq!(canonical_order(text), text);
+        }
+    }
+
+    #[test]
+    fn a_brace_in_a_string_is_not_a_block() {
+        let text = "package \"p\" {\n  license \"a {b\"\n  kind project\n}\n";
+        assert_eq!(
+            canonical_order(text),
+            "package \"p\" {\n  kind project\n  license \"a {b\"\n}\n"
+        );
+    }
+}

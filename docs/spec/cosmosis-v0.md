@@ -140,7 +140,7 @@ The project it makes checks clean. The other templates come with their packages.
 | `sau dev <project>` | Like `npx convex dev`: watch the project, check every save, apply it to the open Sau or a headless one, and report changes and errors as they happen |
 | `sau watch <query>` | Subscribe to a live value (an object's world position, a polygon count, the diagnostics, a capture from a camera) and print it each time it changes |
 | `sau check` | Parse and check every file, with diagnostics |
-| `sau fmt` | Print files in canonical form |
+| `sau fmt` | Write the project's Null files in canonical form (built, Sau task C-07): Null's canonical printer, `null_print::canonical`, for every datablock file, in Blender's schema order with comments kept; the manifest's fields in section 4's order; `settings.noll`, `view.noll` and `.sau/ids.noll` in the formatter's layout only. Formatting twice changes nothing. `--check` writes nothing and fails, listing them, when a file is not canonical. The corpus is kept canonical |
 | `sau convert` | `.blend` to a project and back; asset libraries to packages |
 | `sau import` / `sau export` | Any format Blender reads or writes, into or out of the project |
 | `sau render` | Render stills, animations and passes, headless |
