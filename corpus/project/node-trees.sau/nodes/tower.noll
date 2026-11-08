@@ -1,0 +1,15 @@
+geometry @tower "Tower" {
+  is-modifier
+  input @base geometry "Base"
+  output @tower-out geometry "Tower"
+  nodes {
+    node @in group-input
+    node @stack group "Stack Up" {
+      node-tree @stack-up
+      geometry @in.base
+      count 6
+      gap 20cm
+    }
+    node @out group-output { tower-out @stack.stacked }
+  }
+}

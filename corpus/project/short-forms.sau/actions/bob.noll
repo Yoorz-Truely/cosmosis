@@ -1,0 +1,8 @@
+action @bob "Bob" {
+  slot @buoy object "Buoy" {
+    fcurve location index=2 {
+      key 1 0m
+      key 24 0.2m interpolation=sine
+    }
+  }
+}

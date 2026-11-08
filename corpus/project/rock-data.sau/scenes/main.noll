@@ -1,0 +1,4 @@
+scene @main "Main" {
+  object @rock
+  object @pebble
+}

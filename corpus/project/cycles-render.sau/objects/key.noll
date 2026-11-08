@@ -4,7 +4,6 @@ object @key "Key" {
 }
 
 light @key-light "Key" {
-  type point
   cycles { max-bounces 8 }
   energy 1000W
 }

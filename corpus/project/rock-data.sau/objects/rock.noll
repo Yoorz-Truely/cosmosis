@@ -1,0 +1,8 @@
+object @rock "Rock" {
+  data mesh @rock
+}
+
+object @pebble "Pebble" {
+  data mesh @pebble
+  location [2m 0m 0m]
+}

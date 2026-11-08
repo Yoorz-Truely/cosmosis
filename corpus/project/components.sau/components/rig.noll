@@ -1,0 +1,13 @@
+component @rig "Rig" {
+  object @rig "Rig" {
+    data armature @rig-bones
+    bone @spine "Spine" {
+      constraint @reach kinematic "IK" {
+        target @lid
+        chain-count 2
+      }
+      rotation-mode xyz
+    }
+  }
+  armature @rig-bones "Rig"
+}

@@ -1,0 +1,6 @@
+scene @main "Main" {
+  object @lid
+  collection @pier
+  collection @woods
+  collection @yard
+}

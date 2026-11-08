@@ -1,0 +1,13 @@
+action @flicker "Lamp Flicker" {
+  slot @lamp light "Lamp" {
+    fcurve energy {
+      modifier @wobble noise "Wobble" {
+        scale 2
+        strength 40
+      }
+      key 1 800W interpolation=bezier
+      key 6 620W
+      key 11 800W
+    }
+  }
+}

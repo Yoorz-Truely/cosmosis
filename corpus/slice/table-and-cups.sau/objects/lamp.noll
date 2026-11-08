@@ -4,6 +4,5 @@ object @lamp "Lamp" {
 }
 
 light @lamp-light "Lamp" {
-  type point
   energy 250W
 }

@@ -1,0 +1,9 @@
+scene @main "Main" {
+  frame-start 1
+  frame-end 48
+  fps 24
+  object @lamp
+  object @ball
+  object @dial
+  object @dial-light
+}

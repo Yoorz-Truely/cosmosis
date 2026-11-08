@@ -223,6 +223,36 @@ fn comments_survive_and_stay_with_their_lines() {
 }
 
 #[test]
+fn a_default_goes_unless_a_comment_says_why_it_is_written() {
+    // Sau task C-09 (Null spec, section 15): a line of its own holding its property's default is
+    // left out; one with a comment on it or just above it stays, as the corpus keeps its
+    // examples of a form.
+    let root = scratch("defaults");
+    copy_tree(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/slice/one-cube.sau"),
+        &root,
+    );
+    let cube = root.join("objects/cube.noll");
+    fs::write(
+        &cube,
+        "object @cube \"Cube\" {\n  data mesh @cube-mesh\n  location [0m 0m 1m]\n  rotation-mode xyz\n  pass-index 0 // for the compositor\n  pass-index 4\n}\n\nmesh @cube-mesh \"Cube\" {\n  primitive cube size=2m\n}\n",
+    )
+    .unwrap();
+    let check = sau(&["fmt", "--check", root.to_str().unwrap()]);
+    assert_eq!(check.status.code(), Some(1), "{}", text(&check.stdout));
+    let out = sau(&["fmt", root.to_str().unwrap()]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    assert_eq!(
+        fs::read_to_string(&cube).unwrap(),
+        "object @cube \"Cube\" {\n  data mesh @cube-mesh\n  location [0m 0m 1m]\n  pass-index 0 // for the compositor\n  pass-index 4\n}\n\nmesh @cube-mesh \"Cube\" {\n  primitive cube size=2m\n}\n"
+    );
+    // And once more changes nothing.
+    let again = sau(&["fmt", "--check", root.to_str().unwrap()]);
+    assert_eq!(again.status.code(), Some(0), "{}", text(&again.stdout));
+    fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
 fn sau_fmt_refuses_wrong_usage_and_a_folder_outside_a_project() {
     assert_eq!(sau(&["fmt", "--quick"]).status.code(), Some(2));
     assert_eq!(sau(&["fmt", "a", "b"]).status.code(), Some(2));
