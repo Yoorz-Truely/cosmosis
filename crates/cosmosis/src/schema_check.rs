@@ -1,7 +1,8 @@
 //! Checking a project's Null files against Blender's schema with Null's checker (Sau task 1a-15).
 //!
-//! The schema is Null's `schema/null-schema.json`, generated from the built Sau's RNA (Sau task
-//! 1a-05), compiled in from Null's repository by path. Every file is checked together, so a
+//! The schema is Null's `schema/null-schema-project.json`, the schema of all project data that
+//! Sau's build generates from RNA (Sau tasks 1b-03b and 1b-03e; the slice's `null-schema.json`
+//! until Sau task C-06), compiled in from Null's repository by path. Every file is checked together, so a
 //! handle defined in one file resolves in another (Null spec, section 7). `cosmosis.noll` is
 //! Cosmósis's manifest, read by [`crate::manifest`], and is left out, as are the files whose
 //! forms are their own ([`holds_datablocks`]: `settings.noll`, `view.noll`, `.sau/ids.noll`).
@@ -16,12 +17,14 @@ use crate::layout::{SourceFile, holds_datablocks};
 use crate::tree::Span;
 
 /// The schema's text, as Null holds it.
-const SCHEMA: &str = include_str!("../../../../Null/schema/null-schema.json");
+const SCHEMA: &str = include_str!("../../../../Null/schema/null-schema-project.json");
 
 /// The schema, read once.
 pub fn schema() -> &'static Schema {
     static S: OnceLock<Schema> = OnceLock::new();
-    S.get_or_init(|| Schema::from_json(SCHEMA).expect("Null's schema/null-schema.json reads"))
+    S.get_or_init(|| {
+        Schema::from_json(SCHEMA).expect("Null's schema/null-schema-project.json reads")
+    })
 }
 
 /// Null's checker over `sources`, the project's Null files but the manifest, as Cosmósis's

@@ -19,7 +19,7 @@ use cosmosis::{schema_check, source};
 
 /// Every command in the spec: name, what it does, and whether it is built.
 const COMMANDS: [(&str, &str, bool); 15] = [
-    ("new", "Start a project from a template", false),
+    ("new", "Start a project from a template", true),
     ("open", "Open a project in Sau", false),
     (
         "dev",
@@ -113,6 +113,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         "check" => check(&args[1..]),
+        "new" => new(&args[1..]),
         name => match COMMANDS.iter().find(|c| c.0 == name) {
             Some(_) => {
                 eprintln!("sau: `{name}` is not built yet (Cosmósis spec, section 7)");
@@ -127,6 +128,83 @@ fn main() -> ExitCode {
             }
         },
     }
+}
+
+const NEW_HELP: &str = "Usage: sau new empty <path>
+
+Starts a project in <path>, a folder that does not exist yet or is empty: its manifest
+(cosmosis.noll, the package named after the folder), project.noll, and the .gitignore and
+.gitattributes Cosmósis ships (Sau's cache but its ID map, view.noll and renders/ kept out of
+Git; media/ and data/ in Git LFS). The folder's name, without .sau, gives the package's name
+in kebab case: \"Harbor at Dusk.sau\" is package \"harbor-at-dusk\".
+
+Templates: `empty`, the only one so far; the others of Cosmósis spec section 6 come later.
+
+Exit status: 0 when the project was made, 1 when it could not be written, 2 on wrong usage.
+";
+
+/// `sau new empty <path>` (Sau task 1d-04e): a project with the shipped Git files.
+fn new(args: &[String]) -> ExitCode {
+    if args.iter().any(|a| a == "-h" || a == "--help") {
+        print!("{NEW_HELP}");
+        return ExitCode::SUCCESS;
+    }
+    let [template, path] = args else {
+        return usage_error("`sau new` takes a template and a path: `sau new empty <path>`");
+    };
+    if template != "empty" {
+        return usage_error(&format!(
+            "no template `{template}` yet; `empty` is the only one (Cosmósis spec, section 6)"
+        ));
+    }
+    let root = Path::new(path);
+    if root.exists()
+        && (!root.is_dir() || std::fs::read_dir(root).is_ok_and(|mut d| d.next().is_some()))
+    {
+        return usage_error(&format!("{path} exists and is not an empty folder"));
+    }
+    let stem = root
+        .file_name()
+        .map(|n| {
+            let n = n.to_string_lossy();
+            n.strip_suffix(".sau").unwrap_or(&n).to_string()
+        })
+        .unwrap_or_default();
+    let Some(name) = cosmosis::manifest::to_kebab(&stem) else {
+        return usage_error(&format!(
+            "the folder's name {stem:?} gives no kebab-case package name; name the folder in words"
+        ));
+    };
+    let files = [
+        (
+            cosmosis::manifest::MANIFEST_FILE,
+            format!(
+                "package {} {{\n  null-format 1\n}}\n",
+                null_syntax::escape(&name)
+            ),
+        ),
+        (
+            cosmosis::layout::PROJECT_FILE,
+            // The folder's name as written, escaped: it may hold `"` or `\`.
+            format!("project {} {{\n}}\n", null_syntax::escape(&stem)),
+        ),
+        (".gitignore", cosmosis::templates::GITIGNORE.to_string()),
+        (
+            ".gitattributes",
+            cosmosis::templates::GITATTRIBUTES.to_string(),
+        ),
+    ];
+    let written = std::fs::create_dir_all(root).and_then(|()| {
+        files
+            .iter()
+            .try_for_each(|(file, text)| std::fs::write(root.join(file), text))
+    });
+    if let Err(e) = written {
+        eprintln!("sau new: cannot write {path}: {e}");
+        return ExitCode::FAILURE;
+    }
+    println!("sau new: made package \"{name}\" in {path}");
+    ExitCode::SUCCESS
 }
 
 /// `sau check [path]`.
