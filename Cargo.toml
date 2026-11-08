@@ -12,3 +12,17 @@ rust-version = "1.99"
 [workspace.lints.rust]
 missing_docs = "warn"
 unsafe_code = "deny"
+
+# Cheap builds (Sau's S69, task 0-22), as Scowr's: incremental caches are rewritten on every
+# build, a large share of the SSD's writes, so none; line tables only for our own crates, enough
+# for a backtrace's file and line; no debug info for dependencies.
+[profile.dev]
+debug = "line-tables-only"
+incremental = false
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.test]
+debug = "line-tables-only"
+incremental = false
