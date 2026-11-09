@@ -3,11 +3,15 @@ action @hop "Hop" {
   layer @base "Base" {
     strip @keys keyframe {
       channels @ball {
+        fcurve @bevel width {
+          key 1 0.004
+          key 12 0.01
+        }
         fcurve location index=2 {
           extrapolation linear
           key 1 0m
           key 12 1.5m interpolation=sine easing=ease-out
-          key 24 0m handle-left=[20 0.4] handle-right=[28 0.4]
+          key 24 0m handle-left-type=free handle-right-type=free handle-left=[20 0.4] handle-right=[28 0.4]
         }
       }
     }
