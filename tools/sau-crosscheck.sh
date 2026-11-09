@@ -24,17 +24,26 @@ fi
 work=$root/target/sau-crosscheck
 tree=$work/tree
 head=$(git -C "$sau" rev-parse HEAD)
-# Sau's committed files, extracted again only when its HEAD moves, so later runs build only what
+# Sau's committed `sau/`, and each Blender source its crates read at compile time: every quoted
+# "…source/blender/…" path in sau/crates that names a file at HEAD, such as sau_core's build
+# reading unit.cc (task 1c-01g) and its kinds tests reading the bridge's table through
+# include_str! (task 1b-01o). Any quoted string counts, so a path rustfmt puts on its own line is
+# found; one naming no file (a comment's) is left out.
+paths=(sau)
+while IFS= read -r p; do
+  if git -C "$sau" cat-file -e "HEAD:$p" 2>/dev/null; then
+    paths+=("$p")
+  fi
+done < <(git -C "$sau" grep -ohE '"[^"]*source/blender/[^"]*"' HEAD -- sau/crates |
+  sed -E 's|.*(source/blender/[^"]*)"|\1|' | sort -u)
+# Extracted again only when Sau's HEAD or that list changes, so later runs build only what
 # changed. A real folder, not a link: the compiler resolves `include_str!` paths through links.
-if [ "$(cat "$tree/Sau/.sau-crosscheck-head" 2>/dev/null)" != "$head" ]; then
+marker="$head ${paths[*]}"
+if [ "$(cat "$tree/Sau/.sau-crosscheck-head" 2>/dev/null)" != "$marker" ]; then
   rm -rf "$tree/Sau"
   mkdir -p "$tree/Sau"
-  paths=(sau)
-  if git -C "$sau" cat-file -e HEAD:source/blender/blenkernel/intern/unit.cc 2>/dev/null; then
-    paths+=(source/blender/blenkernel/intern/unit.cc) # read by sau_core's build (task 1c-01g)
-  fi
   git -C "$sau" archive HEAD "${paths[@]}" | tar -x -C "$tree/Sau"
-  echo "$head" >"$tree/Sau/.sau-crosscheck-head"
+  echo "$marker" >"$tree/Sau/.sau-crosscheck-head"
 fi
 for other in Null Cosmosis Scowr; do
   rm -f "$tree/$other"

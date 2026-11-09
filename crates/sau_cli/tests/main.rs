@@ -1,6 +1,6 @@
 //! This crate's integration tests, in one test binary (Sau task 0-26, S69): each file beside this
 //! one is a module here, not a binary of its own, so `cargo test` links one executable, not
-//! 9. The files keep their names, so their snapshots and proptest regressions stay where
+//! 10. The files keep their names, so their snapshots and proptest regressions stay where
 //! they were. A new test file must be listed here: `every_test_file_is_a_module` fails otherwise.
 
 #[path = "check.rs"]
@@ -21,6 +21,8 @@ mod project_corpus;
 mod project_schema;
 #[path = "rename.rs"]
 mod rename;
+#[path = "v0_corpus.rs"]
+mod v0_corpus;
 
 /// The test files of this folder, each a module above.
 const MODULES: &[&str] = &[
@@ -33,6 +35,7 @@ const MODULES: &[&str] = &[
     "project_corpus.rs",
     "project_schema.rs",
     "rename.rs",
+    "v0_corpus.rs",
 ];
 
 #[test]

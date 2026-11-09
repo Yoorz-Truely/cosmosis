@@ -1,0 +1,2 @@
+// An old file path that is not UTF-8: `//m`, the Latin-1 byte 252, `ller.png` (S65).
+image @scan "Scan" { filepath [47 47 109 252 108 108 101 114 46 112 110 103] }

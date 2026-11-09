@@ -1,0 +1,4 @@
+scene @shot "Shot" {
+  compositing-node-group @grade
+  object @tower-base
+}

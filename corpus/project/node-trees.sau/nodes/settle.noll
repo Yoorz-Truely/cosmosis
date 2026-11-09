@@ -1,0 +1,28 @@
+// A simulation zone and a for-each zone.
+geometry @settle "Settle" {
+  is-modifier
+  input @geometry geometry "Geometry"
+  output @settled geometry "Geometry"
+  nodes {
+    node @in group-input
+    zone @sim simulation "Simulation" {
+      state-item @geometry geometry "Geometry"
+      geometry @in.geometry
+      output { geometry @drop.geometry }
+      node @drop set-position {
+        geometry @sim.geometry
+        offset [0m 0m -1cm]
+      }
+    }
+    zone @each foreach-geometry-element "For Each" {
+      generation-item @piece geometry "Piece"
+      geometry @sim.geometry
+      output { piece @spin.geometry }
+      node @spin transform {
+        geometry @each.element
+        rotation [0deg 0deg 10deg]
+      }
+    }
+    node @out group-output { settled @each.piece }
+  }
+}

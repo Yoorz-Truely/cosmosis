@@ -1,0 +1,7 @@
+// Components, parameters and patterns (Null spec, section 8; Sau task 1d-08a): every kind of
+// parameter, a pattern by count and by list, conditions, overrides of copies, of a copy's
+// datablock and of a sub-object inside one, and recursion that counts down.
+project "Components" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}

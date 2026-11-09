@@ -142,7 +142,8 @@ const NEW_HELP: &str = "Usage: sau new empty <path>
 Starts a project in <path>, a folder that does not exist yet or is empty: its manifest
 (cosmosis.noll, the package named after the folder), project.noll, and the .gitignore and
 .gitattributes Cosmósis ships (Sau's cache but its ID map, view.noll and renders/ kept out of
-Git; media/ and data/ in Git LFS). The folder's name, without .sau, gives the package's name
+Git; media/ and data/ in Git LFS), and .blender_project/project.toml, which makes it a Blender
+project too, named as the package (Sau keeps it in step with cosmosis.noll). The folder's name, without .sau, gives the package's name
 in kebab case: \"Harbor at Dusk.sau\" is package \"harbor-at-dusk\".
 
 Templates: `empty`, the only one so far; the others of Cosmósis spec section 6 come later.
@@ -201,11 +202,14 @@ fn new(args: &[String]) -> ExitCode {
             cosmosis::templates::GITATTRIBUTES.to_string(),
         ),
     ];
-    let written = std::fs::create_dir_all(root).and_then(|()| {
-        files
-            .iter()
-            .try_for_each(|(file, text)| std::fs::write(root.join(file), text))
-    });
+    // And Blender's project file, named as the package (S45; Sau task 1d-04c).
+    let written = std::fs::create_dir_all(root)
+        .and_then(|()| {
+            files
+                .iter()
+                .try_for_each(|(file, text)| std::fs::write(root.join(file), text))
+        })
+        .and_then(|()| cosmosis::blender_project::write(root, &name).map(|_| ()));
     if let Err(e) = written {
         eprintln!("sau new: cannot write {path}: {e}");
         return ExitCode::FAILURE;

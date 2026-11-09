@@ -1,0 +1,24 @@
+component @branch "Branch" {
+  param depth 4 { countdown }
+  param length 1m
+  object @branch "Branch" {
+    data mesh @segment
+  }
+  mesh @segment "Segment" { primitive cylinder radius=length*0.05 depth=length }
+  if "depth > 0" {
+    use @branch @left {
+      depth "depth - 1"
+      length length*0.7
+      parent @branch
+      location [0m 0m length]
+      rotation-euler [0deg 35deg 0deg]
+    }
+    use @branch @right {
+      depth "depth - 1"
+      length length*0.7
+      parent @branch
+      location [0m 0m length]
+      rotation-euler [0deg -35deg 0deg]
+    }
+  }
+}

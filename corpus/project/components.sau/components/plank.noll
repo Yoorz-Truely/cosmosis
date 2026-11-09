@@ -1,0 +1,15 @@
+component @plank "Plank" {
+  param length 2.4m
+  param state solid { one-of [solid liquid] }
+  object @plank "Plank" {
+    data mesh @plank-mesh
+    if "state == solid" { material @weathered-oak }
+    else {
+      material @water
+      modifier @fluid fluid { fluid-type flow }
+    }
+  }
+  mesh @plank-mesh "Plank" {
+    primitive cube size=1m scale=[length/1m 0.2 0.04]
+  }
+}
