@@ -1,0 +1,10 @@
+// A shape key animated: the pebble's `Key` plays it, `@lift` by its handle (Null section 9; Sau
+// task 1d-07r).
+action @rise "Rise" {
+  slot @pebble-keys key "Key" {
+    fcurve @lift value {
+      key 1 0
+      key 12 1
+    }
+  }
+}
