@@ -18,7 +18,7 @@ use cosmosis::manifest::{MANIFEST_FILE, Manifest};
 use cosmosis::{schema_check, source};
 
 /// Every command in the spec: name, what it does, and whether it is built.
-const COMMANDS: [(&str, &str, bool); 16] = [
+const COMMANDS: [(&str, &str, bool); 17] = [
     ("new", "Start a project from a template", true),
     ("open", "Open a project in Sau", false),
     (
@@ -38,7 +38,12 @@ const COMMANDS: [(&str, &str, bool); 16] = [
         "Rename a handle in every file that names it",
         true,
     ),
-    ("convert", "Convert a .blend to a project and back", false),
+    (
+        "migrate",
+        "Rewrite a project of an older Null format in this one",
+        true,
+    ),
+    ("convert", "Convert a .blend to a project and back", true),
     (
         "import",
         "Import any format Blender reads into the project",
@@ -121,6 +126,8 @@ fn main() -> ExitCode {
         "new" => new(&args[1..]),
         "fmt" => fmt(&args[1..]),
         "rename" => rename(&args[1..]),
+        "convert" => convert(&args[1..]),
+        "migrate" => migrate(&args[1..]),
         name => match COMMANDS.iter().find(|c| c.0 == name) {
             Some(_) => {
                 eprintln!("sau: `{name}` is not built yet (Cosmósis spec, section 7)");
@@ -607,4 +614,242 @@ fn rename(args: &[String]) -> ExitCode {
         println!("  {f}");
     }
     ExitCode::SUCCESS
+}
+
+const CONVERT_HELP: &str = "Usage: sau convert <scene.blend> <Scene.sau>
+       sau convert <Scene.sau> <scene.blend>
+
+Converts a .blend file into a new project folder (task 1d-05d): Sau opens the file in the
+background and writes every datablock of the kinds it applies through RNA, one Null file per
+datablock in Cosmósis's default layout (scenes/, objects/ with each object's own data, collections/,
+materials/, worlds/, nodes/, and a folder per kind for data several objects share), with the
+manifest, project.noll and the shipped .gitignore and .gitattributes. Interface state (screens,
+workspaces, window managers, brushes) is left out (S61). Each image's, sound's, font's, clip's,
+cache's and volume's file, packed or not, goes into media/ by its SHA-256 (S83). What is not
+converted yet is said.
+The folder must not exist or must be empty. The folder is then checked as `sau check` checks.
+
+The other way, a project folder into a .blend file (task 1d-05e): Sau opens the project in the
+background (--project, which checks it and applies it to an empty file) and saves it there. The
+.blend must not exist yet.
+
+Sau is the app SAU_APP names (its executable, or a script that runs it).
+
+Exit status: 0 when converted and the folder checks, 1 when not, 2 on wrong usage.
+";
+
+/// `sau convert <scene.blend> <Scene.sau>` (task 1d-05d): Sau converts in the background, then
+/// the folder is checked.
+fn convert(args: &[String]) -> ExitCode {
+    let mut words = Vec::new();
+    for arg in args {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print!("{CONVERT_HELP}");
+                return ExitCode::SUCCESS;
+            }
+            flag if flag.starts_with('-') => {
+                return usage_error(&format!("`sau convert` has no option `{flag}`"));
+            }
+            w => words.push(w),
+        }
+    }
+    let [blend, folder] = words.as_slice() else {
+        return usage_error("`sau convert` takes a .blend file and a project folder");
+    };
+    // The way back: a project folder into a .blend file (task 1d-05e).
+    if !blend.ends_with(".blend") && folder.ends_with(".blend") {
+        return convert_back(blend, folder);
+    }
+    if !blend.ends_with(".blend") {
+        return usage_error(&format!(
+            "`{blend}` is not a .blend file; `sau convert` converts a .blend into a folder"
+        ));
+    }
+    if !Path::new(blend).is_file() {
+        eprintln!("sau convert: no file {blend}");
+        return ExitCode::FAILURE;
+    }
+    let target = Path::new(folder);
+    if target.exists() && std::fs::read_dir(target).map_or(true, |mut d| d.next().is_some()) {
+        eprintln!("sau convert: {folder} is not an empty folder; nothing was converted");
+        return ExitCode::FAILURE;
+    }
+    let Some(app) = std::env::var_os("SAU_APP") else {
+        eprintln!(
+            "sau convert: set SAU_APP to the Sau app (its executable), which does the converting"
+        );
+        return ExitCode::FAILURE;
+    };
+    let status = std::process::Command::new(&app)
+        .args(["-b", blend, "--convert", folder])
+        .status();
+    match status {
+        Ok(s) if s.success() => {}
+        Ok(s) => {
+            eprintln!("sau convert: Sau stopped ({s}); nothing more was checked");
+            return ExitCode::FAILURE;
+        }
+        Err(e) => {
+            eprintln!("sau convert: cannot run {}: {e}", Path::new(&app).display());
+            return ExitCode::FAILURE;
+        }
+    }
+    if !target.join(MANIFEST_FILE).is_file() {
+        eprintln!("sau convert: Sau wrote no project into {folder}");
+        return ExitCode::FAILURE;
+    }
+    check(&[(*folder).to_string()])
+}
+
+/// `sau convert <Scene.sau> <scene.blend>` (task 1d-05e): Sau opens the project in the background
+/// (`--project`, which checks and applies it to an empty file) and saves it as the .blend file.
+fn convert_back(folder: &str, blend: &str) -> ExitCode {
+    let root = match layout::find_root(Path::new(folder)) {
+        Ok(root) => root,
+        Err(d) => {
+            report(&[*d]);
+            return ExitCode::FAILURE;
+        }
+    };
+    if Path::new(blend).exists() {
+        eprintln!("sau convert: {blend} exists; nothing was written over");
+        return ExitCode::FAILURE;
+    }
+    let Some(app) = std::env::var_os("SAU_APP") else {
+        eprintln!(
+            "sau convert: set SAU_APP to the Sau app (its executable), which does the converting"
+        );
+        return ExitCode::FAILURE;
+    };
+    let status = std::process::Command::new(&app)
+        .arg("-b")
+        .arg("--project")
+        .arg(&root)
+        .args(["--convert", blend])
+        .status();
+    match status {
+        Ok(s) if s.success() && Path::new(blend).is_file() => {
+            println!("sau convert: {} is {blend}", root.display());
+            ExitCode::SUCCESS
+        }
+        Ok(s) if s.success() => {
+            eprintln!("sau convert: Sau wrote no {blend}");
+            ExitCode::FAILURE
+        }
+        Ok(s) => {
+            eprintln!("sau convert: Sau stopped ({s}); `sau check` says what the project needs");
+            ExitCode::FAILURE
+        }
+        Err(e) => {
+            eprintln!("sau convert: cannot run {}: {e}", Path::new(&app).display());
+            ExitCode::FAILURE
+        }
+    }
+}
+
+const MIGRATE_HELP: &str = "Usage: sau migrate [path]
+
+Rewrites the project holding <path> (default: the current folder), written in an older Null
+format, in the format this Sau reads, and writes that format into cosmosis.noll (Sau's decision
+S45). Null's migrations run one format at a time, each changing only what its format changed.
+
+It lifts one format at a time: each step's files are staged before any is replaced, and then
+cosmosis.noll is raised by one, so a stop part-way leaves that step's format named and
+`sau migrate` repeats that step alone, which leaves the files it rewrote as they are. Refused, with nothing written:
+a format newer than this Sau reads, a format no migration reads, and a file with syntax errors.
+The handle map (.sau/ids.noll) and view.noll keep their own forms and are not rewritten.
+
+Exit status: 0 when migrated or in this format already, 1 when refused, 2 on wrong usage.
+";
+
+/// `sau migrate [path]` (task 1d-04d).
+fn migrate(args: &[String]) -> ExitCode {
+    let mut path = None;
+    for arg in args {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print!("{MIGRATE_HELP}");
+                return ExitCode::SUCCESS;
+            }
+            flag if flag.starts_with('-') => {
+                return usage_error(&format!("`sau migrate` has no option `{flag}`"));
+            }
+            p if path.is_none() => path = Some(p),
+            p => return usage_error(&format!("`sau migrate` takes one path; `{p}` is a second")),
+        }
+    }
+    let root = match layout::find_root(Path::new(path.unwrap_or("."))) {
+        Ok(root) => root,
+        Err(d) => {
+            report(&[*d]);
+            return ExitCode::FAILURE;
+        }
+    };
+    let Ok(manifest) = std::fs::read_to_string(root.join(MANIFEST_FILE)) else {
+        report(&layout::check(&root, None).diagnostics);
+        return ExitCode::FAILURE;
+    };
+    let newest = cosmosis::manifest::NEWEST_NULL_FORMAT;
+    let older = cosmosis::migrate::format_of(&manifest).is_some_and(|(n, _)| n < newest);
+    if !older {
+        // In this format already, or a format the manifest refuses (newer, or not a number).
+        return match Manifest::parse(&manifest) {
+            Ok(m) => {
+                println!(
+                    "sau migrate: package \"{}\" is in Null format {}, the one this Sau reads; nothing to migrate",
+                    m.name, m.null_format
+                );
+                ExitCode::SUCCESS
+            }
+            Err(found) => {
+                report(&found);
+                ExitCode::FAILURE
+            }
+        };
+    }
+    let found = layout::check(&root, None);
+    let errors: Vec<Diagnostic> = found
+        .diagnostics
+        .iter()
+        .filter(|d| d.is_error())
+        .cloned()
+        .collect();
+    if !errors.is_empty() {
+        report(&errors);
+        eprintln!(
+            "sau migrate: fix these first (`sau check`), so that every file is migrated; nothing was changed"
+        );
+        return ExitCode::FAILURE;
+    }
+    match cosmosis::migrate::run(&root, null_check::migrate::MIGRATIONS, newest) {
+        Ok(done) => {
+            for d in &done {
+                println!(
+                    "sau migrate: Null format {} to {} ({}): {} file{} rewritten",
+                    d.from,
+                    d.from + 1,
+                    d.what,
+                    d.written.len(),
+                    if d.written.len() == 1 { "" } else { "s" }
+                );
+                for f in &d.written {
+                    println!("  {}", f.display());
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        Err(cosmosis::migrate::RunError::Refused(found)) => {
+            report(&found);
+            eprintln!("sau migrate: nothing was changed");
+            ExitCode::FAILURE
+        }
+        Err(cosmosis::migrate::RunError::Io { done, error }) => {
+            let at = done.last().map_or_else(String::new, |d| {
+                format!(" (it is in Null format {} now)", d.from + 1)
+            });
+            eprintln!("sau migrate: {error}{at}; run `sau migrate` again to finish");
+            ExitCode::FAILURE
+        }
+    }
 }

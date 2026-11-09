@@ -33,8 +33,18 @@ use crate::tree::{Node, Property, Span, Value, ValueKind};
 /// The manifest's file name, at the root of every project (S37).
 pub const MANIFEST_FILE: &str = "cosmosis.noll";
 
-/// The newest Null format this Cosmósis reads. Older formats are migrated (S45); none exist yet.
-pub const NEWEST_NULL_FORMAT: u32 = 1;
+/// The Null format this Sau reads, Null's own ([`null_check::migrate::FORMAT`]). A project of an
+/// older format is migrated by `sau migrate` ([`crate::migrate`], S45, task 1d-04d); one of a
+/// newer format is refused.
+pub const NEWEST_NULL_FORMAT: u32 = null_check::migrate::FORMAT;
+
+// Format 1 is the first, so every format the reader takes is the newest. When Null's format goes
+// up, a format from 1 below it reads but must be migrated before it is used: the reader then needs
+// an error for it naming `sau migrate` (task 1d-04d), and this stops the build until it has one.
+const _: () = assert!(
+    NEWEST_NULL_FORMAT == 1,
+    "an older Null format reads now: give the manifest an error for it that names `sau migrate`"
+);
 
 /// The package's fields, in canonical order.
 pub const FIELDS: [&str; 6] = [
@@ -411,7 +421,7 @@ impl ManifestError {
             }
             BadNullFormat { found } => format!("`null-format {found}` is not a format number"),
             NewerNullFormat { found } => format!(
-                "the project is written in Null format {found}, newer than this Cosmósis reads \
+                "the project is written in Null format {found}, newer than this Sau reads \
                  (format {NEWEST_NULL_FORMAT})"
             ),
             UnknownKind { found, .. } => format!("`{found}` is not a package kind"),
@@ -506,7 +516,7 @@ impl ManifestError {
                 format!("write it as `{name} \"^1.0\"` or `{name} path=\"../{name}\"`")
             }
             BadNullFormat { .. } => format!(
-                "formats are whole numbers from 1; this Cosmósis reads up to format {NEWEST_NULL_FORMAT}"
+                "formats are whole numbers from 1; this Sau reads format {NEWEST_NULL_FORMAT}"
             ),
             NewerNullFormat { .. } => {
                 "open it with a newer Sau: older formats are migrated, newer ones cannot be".into()

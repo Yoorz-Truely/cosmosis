@@ -11,6 +11,8 @@ pub mod diagnostic;
 pub mod ids;
 pub mod layout;
 pub mod manifest;
+pub mod media;
+pub mod migrate;
 pub mod schema_check;
 pub mod source;
 pub mod templates;

@@ -5,6 +5,8 @@
 
 #[path = "check.rs"]
 mod check;
+#[path = "convert.rs"]
+mod convert;
 #[path = "corpus.rs"]
 mod corpus;
 #[path = "data_files.rs"]
@@ -13,6 +15,8 @@ mod data_files;
 mod fmt;
 #[path = "layout_rules.rs"]
 mod layout_rules;
+#[path = "migrate.rs"]
+mod migrate;
 #[path = "new.rs"]
 mod new;
 #[path = "project_corpus.rs"]
@@ -27,10 +31,12 @@ mod v0_corpus;
 /// The test files of this folder, each a module above.
 const MODULES: &[&str] = &[
     "check.rs",
+    "convert.rs",
     "corpus.rs",
     "data_files.rs",
     "fmt.rs",
     "layout_rules.rs",
+    "migrate.rs",
     "new.rs",
     "project_corpus.rs",
     "project_schema.rs",
