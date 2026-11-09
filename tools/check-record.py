@@ -409,6 +409,10 @@ def selftest():
     """Commits in throwaway repositories: refused without a check, after a failed check and after
     one more edit; allowed after a passing check and for documents alone; merges exempt. Then
     this repository's hooks and check must call this file."""
+    # Run from a hook or a rebase, git's GIT_DIR, GIT_INDEX_FILE and the rest would send the
+    # throwaway repositories' commits to the real one: clear every GIT_* first (task 0-33).
+    for key in [k for k in os.environ if k.startswith("GIT_")]:
+        del os.environ[key]
     me = pathlib.Path(__file__).resolve()
     failures = []
 
