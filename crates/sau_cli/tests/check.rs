@@ -80,8 +80,14 @@ fn version() {
     assert_eq!(out.status.code(), Some(0));
     assert_eq!(
         text(&out.stdout),
-        format!("sau {}\n", env!("CARGO_PKG_VERSION"))
+        format!("sau {}\n", cosmosis::SAU_VERSION)
     );
+    // Sau's version (task 0-35), as Sau's `sau/VERSION` gives it where Sau's checkout is
+    // beside this one, as in every worktree.
+    let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../Sau/sau/VERSION");
+    if let Ok(sau) = std::fs::read_to_string(&file) {
+        assert_eq!(cosmosis::SAU_VERSION, sau.trim(), "{}", file.display());
+    }
 }
 
 #[test]
