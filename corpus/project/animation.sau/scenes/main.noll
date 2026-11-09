@@ -2,6 +2,9 @@ scene @main "Main" {
   frame-start 1
   frame-end 48
   fps 24
+  marker @start "Start" frame=1
+  marker @swap "Swap" frame=24 { camera @dial }
+  marker @f40 frame=40
   object @lamp
   object @ball
   object @dial

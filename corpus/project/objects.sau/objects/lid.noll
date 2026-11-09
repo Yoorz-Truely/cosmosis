@@ -24,6 +24,7 @@ object @dial "Dial" { rotation-euler [0deg 0deg 45deg] }
 
 object @rig "Rig" {
   data armature @rig-bones
+  action @nod slot=@rig
   bone @spine "Spine" {
     constraint @reach kinematic "IK" {
       target @lid
@@ -33,7 +34,26 @@ object @rig "Rig" {
   }
 }
 
-armature @rig-bones "Rig"
+armature @rig-bones "Rig" {
+  bone @spine "Spine" {
+    head [0m 0m 0m]
+    tail [0m 0m 1m]
+    collections [@trunk]
+  }
+  bone @neck "Neck" {
+    parent @spine
+    use-connect
+    head [0m 0m 1m]
+    tail [0m 0.1m 1.3m]
+    roll 5deg
+    collections [@trunk @face]
+  }
+  bone-collection @trunk "Trunk"
+  bone-collection @face "Face" {
+    parent @trunk
+    is-visible off
+  }
+}
 
 object @view "View" {
   data camera @view-lens

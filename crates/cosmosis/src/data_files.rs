@@ -140,7 +140,7 @@ fn lines_in(file: &SourceFile, out: &mut Vec<Line>) {
             continue;
         };
         let owner = (top.name().into_owned(), handle);
-        walk(file, top, &owner, out);
+        walk(file, top, &owner, None, out);
     }
 }
 
@@ -154,7 +154,16 @@ fn handle_of(node: Node<'_>) -> Option<String> {
     Some(format!("@{}", to_kebab_case(&name)?))
 }
 
-fn walk(file: &SourceFile, node: Node<'_>, owner: &(String, String), out: &mut Vec<Line>) {
+/// The lines under `node` that name data files; `key` is the handle of the shape key whose block
+/// holds them (RFC 0005), whose `positions` are named by its handle and its other arrays by its
+/// handle and the line's name (`@lift.tilts`), as Null's checker matches them.
+fn walk(
+    file: &SourceFile,
+    node: Node<'_>,
+    owner: &(String, String),
+    key: Option<&str>,
+    out: &mut Vec<Line>,
+) {
     for c in node.children() {
         let named = c.entries().find_map(|e| match e {
             Entry::Prop { key, value } if key.text == "file" => Some(value),
@@ -164,10 +173,11 @@ fn walk(file: &SourceFile, node: Node<'_>, owner: &(String, String), out: &mut V
             Some(v @ (Value::Str(_) | Value::Raw(_))) => {
                 let written = v.as_string().unwrap_or_default().into_owned();
                 let line = c.name().into_owned();
-                let array = if NAMED_BY_LINE.contains(&line.as_str()) {
-                    line
-                } else {
-                    c.handle().map_or(line, |h| h.text.to_string())
+                let array = match key {
+                    Some(k) if line == "positions" => k.to_string(),
+                    Some(k) => format!("{k}.{line}"),
+                    None if NAMED_BY_LINE.contains(&line.as_str()) => line,
+                    None => c.handle().map_or(line, |h| h.text.to_string()),
                 };
                 out.push(Line {
                     from: file.path.clone(),
@@ -184,7 +194,14 @@ fn walk(file: &SourceFile, node: Node<'_>, owner: &(String, String), out: &mut V
             }
             // Not a string: Null's checker says so.
             Some(_) => {}
-            None => walk(file, c, owner, out),
+            None => {
+                let handle = c.handle().map(|h| h.text.to_string());
+                let inner = match (c.name().as_ref(), &handle) {
+                    ("shape-key", Some(h)) => Some(h.as_str()),
+                    _ => key,
+                };
+                walk(file, c, owner, inner, out)
+            }
         }
     }
 }
