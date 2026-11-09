@@ -1,0 +1,13 @@
+object @dust "Dust" {
+  data point-cloud @dust
+}
+
+object @fur "Fur" {
+  data curves @fur
+  location [1m 0m 0m]
+}
+
+object @sketch "Sketch" {
+  data grease-pencil @sketch
+  location [2m 0m 0m]
+}

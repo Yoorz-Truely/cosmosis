@@ -16,6 +16,9 @@
 //!   "a datablock file Sau does not know" (it is the line's), and `sau fmt` writes it one element
 //!   per line ([`layout_of`]).
 //!
+//! A Grease Pencil drawing's arrays (RFC 0006) are named in one word, the drawing's handle and
+//! the array: `array grease-pencil @sketch @first.points [ … ]`, `… @first/@radius [ … ]`.
+//!
 //! These replace Null's own matching errors (`null-handle` at the line's name and at the data
 //! file's node): Null matches by the header, so where the path and the header disagree Null's
 //! message would name the wrong cause.
@@ -186,6 +189,33 @@ fn walk(file: &SourceFile, node: Node<'_>, owner: &(String, String), out: &mut V
     }
 }
 
+/// The arrays of a Grease Pencil drawing (RFC 0006, Sau's decision S91), among `lines` of `file`,
+/// named in one word as Null's checker matches them: the drawing's handle, a dot and the line's
+/// name for its own (`@first.points`), its handle, `/` and the attribute's for an attribute
+/// (`@first/@radius`).
+fn in_drawings(file: &SourceFile, lines: &mut [Line]) {
+    let parse = null_syntax::parse(&file.text);
+    for top in parse.document().nodes() {
+        for d in top.children().filter(|c| c.name() == "drawing") {
+            let Some(handle) = d.handle().map(|h| h.text.to_string()) else {
+                continue;
+            };
+            for c in d.children() {
+                let at = span(c.span());
+                for l in lines.iter_mut() {
+                    if l.value.start >= at.start && l.value.end <= at.end {
+                        l.header.array = if c.name() == "attribute" {
+                            format!("{handle}/{}", l.header.array)
+                        } else {
+                            format!("{handle}.{}", l.header.array)
+                        };
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// A data file's header and the span of its `array` node, if it reads.
 fn header_of(text: &str) -> Option<(Header, Span)> {
     let parse = null_syntax::parse(text);
@@ -221,7 +251,9 @@ pub fn check(sources: &[SourceFile]) -> Checked {
         .iter()
         .filter(|f| holds_datablocks(&f.path) && !is_data_file(&f.text))
     {
+        let from = lines.len();
         lines_in(f, &mut lines);
+        in_drawings(f, &mut lines[from..]);
     }
     let headers: HashMap<&Path, (Header, Span)> = data
         .iter()
