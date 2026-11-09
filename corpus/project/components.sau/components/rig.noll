@@ -13,6 +13,7 @@ component @rig "Rig" {
     bone @spine "Spine" {
       head [0m 0m 0m]
       tail [0m 0m 1m]
+      collections [@trunk]
     }
     bone @neck "Neck" {
       parent @spine
@@ -20,6 +21,12 @@ component @rig "Rig" {
       head [0m 0m 1m]
       tail [0m 0.1m 1.3m]
       roll 5deg
+      collections [@trunk @face]
+    }
+    bone-collection @trunk "Trunk"
+    bone-collection @face "Face" {
+      parent @trunk
+      is-visible off
     }
   }
 }
