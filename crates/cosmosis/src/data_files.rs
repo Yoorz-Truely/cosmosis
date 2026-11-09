@@ -16,6 +16,9 @@
 //!   "a datablock file Sau does not know" (it is the line's), and `sau fmt` writes it one element
 //!   per line ([`layout_of`]).
 //!
+//! A Grease Pencil drawing's arrays (RFC 0006) are named in one word, the drawing's handle and
+//! the array: `array grease-pencil @sketch @first.points [ … ]`, `… @first/@radius [ … ]`.
+//!
 //! These replace Null's own matching errors (`null-handle` at the line's name and at the data
 //! file's node): Null matches by the header, so where the path and the header disagree Null's
 //! message would name the wrong cause.
@@ -137,7 +140,7 @@ fn lines_in(file: &SourceFile, out: &mut Vec<Line>) {
             continue;
         };
         let owner = (top.name().into_owned(), handle);
-        walk(file, top, &owner, out);
+        walk(file, top, &owner, None, out);
     }
 }
 
@@ -151,7 +154,16 @@ fn handle_of(node: Node<'_>) -> Option<String> {
     Some(format!("@{}", to_kebab_case(&name)?))
 }
 
-fn walk(file: &SourceFile, node: Node<'_>, owner: &(String, String), out: &mut Vec<Line>) {
+/// The lines under `node` that name data files; `key` is the handle of the shape key whose block
+/// holds them (RFC 0005), whose `positions` are named by its handle and its other arrays by its
+/// handle and the line's name (`@lift.tilts`), as Null's checker matches them.
+fn walk(
+    file: &SourceFile,
+    node: Node<'_>,
+    owner: &(String, String),
+    key: Option<&str>,
+    out: &mut Vec<Line>,
+) {
     for c in node.children() {
         let named = c.entries().find_map(|e| match e {
             Entry::Prop { key, value } if key.text == "file" => Some(value),
@@ -161,10 +173,11 @@ fn walk(file: &SourceFile, node: Node<'_>, owner: &(String, String), out: &mut V
             Some(v @ (Value::Str(_) | Value::Raw(_))) => {
                 let written = v.as_string().unwrap_or_default().into_owned();
                 let line = c.name().into_owned();
-                let array = if NAMED_BY_LINE.contains(&line.as_str()) {
-                    line
-                } else {
-                    c.handle().map_or(line, |h| h.text.to_string())
+                let array = match key {
+                    Some(k) if line == "positions" => k.to_string(),
+                    Some(k) => format!("{k}.{line}"),
+                    None if NAMED_BY_LINE.contains(&line.as_str()) => line,
+                    None => c.handle().map_or(line, |h| h.text.to_string()),
                 };
                 out.push(Line {
                     from: file.path.clone(),
@@ -181,7 +194,41 @@ fn walk(file: &SourceFile, node: Node<'_>, owner: &(String, String), out: &mut V
             }
             // Not a string: Null's checker says so.
             Some(_) => {}
-            None => walk(file, c, owner, out),
+            None => {
+                let handle = c.handle().map(|h| h.text.to_string());
+                let inner = match (c.name().as_ref(), &handle) {
+                    ("shape-key", Some(h)) => Some(h.as_str()),
+                    _ => key,
+                };
+                walk(file, c, owner, inner, out)
+            }
+        }
+    }
+}
+
+/// The arrays of a Grease Pencil drawing (RFC 0006, Sau's decision S91), among `lines` of `file`,
+/// named in one word as Null's checker matches them: the drawing's handle, a dot and the line's
+/// name for its own (`@first.points`), its handle, `/` and the attribute's for an attribute
+/// (`@first/@radius`).
+fn in_drawings(file: &SourceFile, lines: &mut [Line]) {
+    let parse = null_syntax::parse(&file.text);
+    for top in parse.document().nodes() {
+        for d in top.children().filter(|c| c.name() == "drawing") {
+            let Some(handle) = d.handle().map(|h| h.text.to_string()) else {
+                continue;
+            };
+            for c in d.children() {
+                let at = span(c.span());
+                for l in lines.iter_mut() {
+                    if l.value.start >= at.start && l.value.end <= at.end {
+                        l.header.array = if c.name() == "attribute" {
+                            format!("{handle}/{}", l.header.array)
+                        } else {
+                            format!("{handle}.{}", l.header.array)
+                        };
+                    }
+                }
+            }
         }
     }
 }
@@ -221,7 +268,9 @@ pub fn check(sources: &[SourceFile]) -> Checked {
         .iter()
         .filter(|f| holds_datablocks(&f.path) && !is_data_file(&f.text))
     {
+        let from = lines.len();
         lines_in(f, &mut lines);
+        in_drawings(f, &mut lines[from..]);
     }
     let headers: HashMap<&Path, (Header, Span)> = data
         .iter()

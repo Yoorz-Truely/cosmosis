@@ -1,0 +1,5 @@
+scene @main "Main" {
+  object @dust
+  object @fur
+  object @sketch
+}
