@@ -1,0 +1,5 @@
+array grease-pencil @sketch @first.points [
+  [0m 0m 0m]
+  [0.5m 0m 0m]
+  [0.5m 0m 0.5m]
+]

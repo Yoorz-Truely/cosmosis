@@ -1,0 +1,5 @@
+// A point cloud: its points and their radii.
+point-cloud @dust "Dust" {
+  points [[0m 0m 0m] [0.1m 0m 0m] [0m 0.1m 0.2m]]
+  attribute @radius point float "radius" [0.01 0.02 0.01]
+}
