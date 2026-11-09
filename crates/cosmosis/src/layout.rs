@@ -9,7 +9,9 @@
 //!   root are files, not folders, and a `project` package has `project.noll`;
 //! - every `.noll` file is readable UTF-8 text (Null spec, section 2);
 //! - `media/` and `data/` hold only files named by the SHA-256 of their contents, as
-//!   `<sha256>.<ext>` (Null spec, sections 9 and 12).
+//!   `<sha256>.<ext>` (Null spec, sections 9 and 12); `media/` holds tile sets and sequences
+//!   too, `<sha256>.tiles/` and `<sha256>.frames/`, each named by its listing's hash (RFC 0007,
+//!   S96).
 //!
 //! Folders whose names start with `.` (`.sau/`, the cache; `.git/`) and `renders/` are not
 //! source and are skipped, as is a folder holding a `cosmosis.noll` of its own, which is a
@@ -358,6 +360,14 @@ fn content(dir: &Path, rel: &Path, layout: &mut Layout) {
         }
         let rel_path = rel.join(&name);
         let path = entry.path();
+        // A tile set or a sequence (Null section 12; RFC 0007, S96; task 1d-05m), in `media/`.
+        if path.is_dir()
+            && rel == Path::new(CONTENT_FOLDERS[0])
+            && let Some((kind, stem)) = crate::media::SetKind::of_folder(&name)
+        {
+            set_folder(&path, &rel_path, kind, stem, layout);
+            continue;
+        }
         if path.is_dir() {
             layout.diagnostics.push(
                 Diagnostic::error(
@@ -421,6 +431,120 @@ fn content(dir: &Path, rel: &Path, layout: &mut Layout) {
                 )
                 .in_file(&rel_path)
                 .with_help(renamed(ext)),
+            );
+        }
+    }
+}
+
+/// Checks a tile set's or a sequence's folder (RFC 0007, S96; task 1d-05m): each file
+/// `<number>.<ext>` (`cosmosis-media-set-name`), one extension and, for frames, one width
+/// (`cosmosis-media-set-mixed`), tiles numbered 1001 to 2000 (`cosmosis-media-set-tile`), and the
+/// folder named by its listing's SHA-256 (`cosmosis-media-set-hash`).
+fn set_folder(
+    dir: &Path,
+    rel: &Path,
+    kind: crate::media::SetKind,
+    stem: &str,
+    layout: &mut Layout,
+) {
+    use crate::media::SetKind;
+    let mut members: Vec<(u64, String, String)> = Vec::new();
+    let (mut exts, mut widths) = (Vec::new(), Vec::new());
+    let mut named = true;
+    for entry in entries(dir, rel, layout) {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if is_ignored(&name) {
+            continue;
+        }
+        let rel_path = rel.join(&name);
+        let path = entry.path();
+        let parts = name
+            .split_once('.')
+            .filter(|(n, e)| {
+                !n.is_empty()
+                    && n.bytes().all(|b| b.is_ascii_digit())
+                    && !e.is_empty()
+                    && e.bytes().all(|b| b.is_ascii_alphanumeric())
+            })
+            .filter(|_| path.is_file());
+        let Some((number, ext)) = parts else {
+            named = false;
+            layout.diagnostics.push(
+                Diagnostic::error(
+                    "cosmosis-media-set-name",
+                    format!(
+                        "{} holds a {}'s files, each named `<number>.<ext>`",
+                        rel.display(),
+                        match kind {
+                            SetKind::Tiles => "tiled image",
+                            SetKind::Frames => "sequence",
+                        }
+                    ),
+                )
+                .in_file(&rel_path)
+                .with_help("name each file by its tile or frame number and its extension, such as `1001.png`"),
+            );
+            continue;
+        };
+        layout.content_files += 1;
+        let n: u64 = number.parse().unwrap_or(u64::MAX);
+        if kind == SetKind::Tiles && !(1001..=2000).contains(&n) {
+            layout.diagnostics.push(
+                Diagnostic::error(
+                    "cosmosis-media-set-tile",
+                    format!("tile {number} is outside UDIM's 1001 to 2000"),
+                )
+                .in_file(&rel_path),
+            );
+        }
+        if !exts.contains(&ext.to_string()) {
+            exts.push(ext.to_string());
+        }
+        if !widths.contains(&number.len()) {
+            widths.push(number.len());
+        }
+        let hash = match sha256(&path) {
+            Ok(h) => h,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(e) => {
+                layout.diagnostics.push(
+                    Diagnostic::error("cosmosis-io", format!("cannot read the file: {e}"))
+                        .in_file(&rel_path),
+                );
+                named = false;
+                continue;
+            }
+        };
+        members.push((n, name, hash));
+    }
+    let mixed = exts.len() > 1 || (kind == SetKind::Frames && widths.len() > 1);
+    if mixed {
+        layout.diagnostics.push(
+            Diagnostic::error(
+                "cosmosis-media-set-mixed",
+                format!(
+                    "{}'s files have {}: one set has one",
+                    rel.display(),
+                    if exts.len() > 1 {
+                        format!("the extensions {}", exts.join(", "))
+                    } else {
+                        "numbers of different widths".to_string()
+                    }
+                ),
+            )
+            .in_file(rel),
+        );
+    }
+    if named && !members.is_empty() {
+        let hash = crate::media::listing_hash(&members);
+        if hash != stem {
+            layout.diagnostics.push(
+                Diagnostic::error(
+                    "cosmosis-media-set-hash",
+                    format!("the folder's listing has the SHA-256 {hash}, not the one in its name"),
+                )
+                .in_file(rel)
+                .with_help(format!("rename it to media/{hash}.{}", kind.suffix())),
             );
         }
     }
