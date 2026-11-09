@@ -398,3 +398,35 @@ fn a_data_file_in_a_content_folder_is_in_the_wrong_place() {
     );
     assert!(err.contains("meshes/rock.heat.noll holds it"), "{err}");
 }
+
+#[test]
+fn a_shape_keys_arrays_in_data_files_are_named_by_its_handle() {
+    // RFC 0005 (S88, task 1d-07r): in a shape key's block, `positions file=…` names a data file
+    // whose header is the key's handle (`array mesh @pebble @lift`), as Null's checker matches
+    // it; another of its arrays is the handle and the line's name.
+    let pebble = "meshes/pebble.noll";
+    let text = fs::read_to_string(corpus().join(pebble)).unwrap().replace(
+        "    positions [[0m 0m 0m] [1m 0m 0.5m] [0m 1m 0.25m] [1m 1m 1m]]\n",
+        "    positions file=\"pebble.lift.noll\" count=4 bounds=[[0m 0m 0m] [1m 1m 1m]]\n",
+    );
+    let data = "array mesh @pebble @lift [\n  [0m 0m 0m]\n  [1m 0m 0.5m]\n  [0m 1m 0.25m]\n  [1m 1m 1m]\n]\n";
+    let root = rock(&[(pebble, &text), ("meshes/pebble.lift.noll", data)], &[]);
+    let (found, err) = errors(&root);
+    assert!(found.is_empty(), "{err}");
+    // The header naming `positions` instead is the error at the line.
+    let root = rock(
+        &[
+            (pebble, &text),
+            (
+                "meshes/pebble.lift.noll",
+                &data.replace("@lift [", "positions ["),
+            ),
+        ],
+        &[],
+    );
+    let (found, err) = errors(&root);
+    assert!(
+        found.iter().any(|(c, _)| c == "cosmosis-data-file-header"),
+        "{err}"
+    );
+}
