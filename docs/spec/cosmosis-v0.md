@@ -1,6 +1,6 @@
 # Cosmósis: Sau's project framework
 
-Draft v0, November 6, 2026. Nothing is built yet. The name Shoon was chosen by the user on November 6, 2026, and changed to Cosmósis on November 7, 2026. It lived in Sau as `docs/SHOON.md` until it moved to this repository on November 6, 2026, as Baarton's spec did. Where it fits in the product: Sau's `docs/ROADMAP.md`.
+v0, November 6, 2026. Built: the layout's checks, the manifest, data files, media paths, `sau new empty`, `sau check`, `sau fmt`, `sau rename`, `sau migrate` and `sau convert` both ways, each marked built in sections 6 and 7; the rest is not built yet, and `sau --help` marks it so. The name Shoon was chosen by the user on November 6, 2026, and changed to Cosmósis on November 7, 2026. It lived in Sau as `docs/SHOON.md` until it moved to this repository on November 6, 2026, as Baarton's spec did. Where it fits in the product: Sau's `docs/ROADMAP.md`.
 
 Cosmósis is the standard every Sau project follows: how a project folder is laid out, which language goes where, how projects declare and share packages, how a new project starts from a template, and which commands check, test, convert, render and deliver it. It plays the part Next.js plays for web apps, and Baarton for Crescend.
 
@@ -128,7 +128,7 @@ A package is a Cosmósis project of another kind, with a manifest, versions, and
 
 ## 6. Templates
 
-`sau new <template> <path>` starts a project from a template package: `empty`, `product-shot`, `character`, `environment`, `motion-graphics`, `architectural`, `game-asset`. Each template is a complete project with settings pinned, checks included and a short README.
+`sau new <template> <path>` starts a project from a template package, the eight of Sau's decision S50: `empty`, `product-shot`, `character`, `environment`, `motion-graphics`, `architectural`, `game-asset` and `animated-short`. Each template is a complete project with settings pinned, checks included and a short README.
 
 `sau new empty <path>` is built (Sau task 1d-04e). It makes the folder, which must not exist yet or be empty, with:
 

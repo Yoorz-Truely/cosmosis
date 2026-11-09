@@ -76,7 +76,7 @@ fn help() -> String {
     let mut s = format!(
         "sau {}: the command of Cosmósis, Sau's project framework\n\n\
          Usage: sau <command> [arguments]\n\nCommands:\n",
-        env!("CARGO_PKG_VERSION")
+        cosmosis::SAU_VERSION
     );
     for (name, what, built) in COMMANDS {
         let mark = if built { "" } else { " (not built yet)" };
@@ -119,7 +119,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         "-V" | "--version" => {
-            println!("sau {}", env!("CARGO_PKG_VERSION"));
+            println!("sau {}", cosmosis::SAU_VERSION);
             ExitCode::SUCCESS
         }
         "check" => check(&args[1..]),

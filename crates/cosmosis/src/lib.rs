@@ -5,6 +5,11 @@
 //! tree, from which the manifest is read ([`manifest::Manifest::parse`], Sau task 1a-11).
 //! What each file means beyond its syntax is Null's checker's (Sau task 1a-06).
 
+/// The version of Sau this Cosmósis goes with, `sau/VERSION` in Sau's repository: what
+/// `sau --version` prints (Sau's task 0-35). A test holds it to Sau's file where Sau's checkout
+/// is beside this one.
+pub const SAU_VERSION: &str = "0.1.0";
+
 pub mod blender_project;
 pub mod data_files;
 pub mod diagnostic;
