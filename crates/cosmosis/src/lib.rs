@@ -11,6 +11,7 @@
 pub const SAU_VERSION: &str = "0.1.0";
 
 pub mod blender_project;
+pub mod body;
 pub mod data_files;
 pub mod diagnostic;
 pub mod ids;
