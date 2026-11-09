@@ -36,15 +36,28 @@ use crate::tree::Span;
 /// The node a data file holds.
 pub const ARRAY: &str = "array";
 
+/// The node a key file holds (Null section 11, S86; task 1d-07t): an f-curve's keys past 2,000,
+/// `keys @action @slot <path> index=N { key … }`, named by the f-curve's `keys file=…` line and
+/// checked here as a data file is.
+pub const KEYS: &str = "keys";
+
 /// The lines whose array is the line's own name; the others (`attribute`, `uv-map`) are named by
 /// their handle.
 const NAMED_BY_LINE: [&str; 3] = ["vertices", "edges", "polygons"];
 
-/// Whether `text` is a data file: its one live node is `array`.
+/// Whether `text` is a data file: its one live node is `array`, or a key file's `keys`.
 pub fn is_data_file(text: &str) -> bool {
     let parse = null_syntax::parse(text);
     let mut nodes = parse.document().nodes().filter(|n| !n.is_commented_out());
-    matches!((nodes.next(), nodes.next()), (Some(n), None) if n.name() == ARRAY)
+    matches!((nodes.next(), nodes.next()), (Some(n), None) if n.name() == ARRAY || n.name() == KEYS)
+}
+
+/// Whether `text` is a key file: its one live node is `keys` (S86). `sau fmt` writes it in the
+/// formatter's layout, one key per line.
+pub fn is_key_file(text: &str) -> bool {
+    let parse = null_syntax::parse(text);
+    let mut nodes = parse.document().nodes().filter(|n| !n.is_commented_out());
+    matches!((nodes.next(), nodes.next()), (Some(n), None) if n.name() == KEYS)
 }
 
 /// A data file's header: the owner's kind and handle, and the array.
@@ -56,8 +69,29 @@ struct Header {
 }
 
 impl Header {
+    /// Its node's line as written: `array mesh @rock vertices`, or a key file's `keys @hop @ball
+    /// location index=2` (kind `keys`, the action's handle, then the slot, path and index).
     fn show(&self) -> String {
+        if self.kind == KEYS {
+            return format!("{KEYS} {} {}", self.handle, self.array);
+        }
         format!("array {} {} {}", self.kind, self.handle, self.array)
+    }
+
+    /// Its node opened, as a file of it starts: `array … [`, or `keys … {`.
+    fn open(&self) -> String {
+        if self.kind == KEYS {
+            return format!("{} {{", self.show());
+        }
+        format!("{} [", self.show())
+    }
+
+    /// Its node with its contents elided: `array … [ … ]`, or `keys … { key … }`.
+    fn whole(&self) -> String {
+        if self.kind == KEYS {
+            return format!("{} {{ key … }}", self.show());
+        }
+        format!("{} [ … ]", self.show())
     }
 }
 
@@ -79,7 +113,8 @@ struct Line {
 pub struct Checked {
     /// The problems, in the order of the files and lines they concern.
     pub diagnostics: Vec<Diagnostic>,
-    /// Where Null's own matching errors (`null-handle`) are replaced by these: a naming line's
+    /// Where Null's own matching errors (`null-handle`, and a key file's `null-key-file-missing`
+    /// and `null-key-file-unnamed`) are replaced by these: a naming line's
     /// name and a data file's `array` node, each with its file.
     pub replaced: Vec<(PathBuf, Span)>,
     /// The files in `media/` or `data/` a line names as its data file: the place error is
@@ -140,7 +175,7 @@ fn lines_in(file: &SourceFile, out: &mut Vec<Line>) {
             continue;
         };
         let owner = (top.name().into_owned(), handle);
-        walk(file, top, &owner, None, out);
+        walk(file, top, &owner, None, &mut Vec::new(), out);
     }
 }
 
@@ -154,14 +189,44 @@ fn handle_of(node: Node<'_>) -> Option<String> {
     Some(format!("@{}", to_kebab_case(&name)?))
 }
 
+/// The words of `node`'s line, its arguments then its `name=value`s other than `file=`, `count=`
+/// and the summary's.
+fn line_words(node: Node<'_>) -> Vec<String> {
+    let mut words: Vec<String> = node.args().map(|v| v.text().to_string()).collect();
+    for e in node.entries() {
+        if let Entry::Prop { key, value } = e
+            && key.text == "index"
+        {
+            words.push(format!("index={}", value.text()));
+        }
+    }
+    words
+}
+
+/// The key file's header an f-curve's `keys file=…` line names: the action's handle, the slot of
+/// the block the f-curve is in (`slot @s` or `channels @s`), its path and index.
+fn keys_header(owner: &(String, String), curve: Node<'_>, block: Option<Node<'_>>) -> Header {
+    let slot = block
+        .and_then(|b| b.args().next())
+        .map(|v| v.text().to_string())
+        .unwrap_or_default();
+    Header {
+        kind: KEYS.to_string(),
+        handle: owner.1.clone(),
+        array: format!("{slot} {}", line_words(curve).join(" ")),
+    }
+}
+
 /// The lines under `node` that name data files; `key` is the handle of the shape key whose block
 /// holds them (RFC 0005), whose `positions` are named by its handle and its other arrays by its
-/// handle and the line's name (`@lift.tilts`), as Null's checker matches them.
-fn walk(
+/// handle and the line's name (`@lift.tilts`), as Null's checker matches them; `chain` is the
+/// blocks down to `node`, whose last is an f-curve's slot for its key file (S86).
+fn walk<'a>(
     file: &SourceFile,
-    node: Node<'_>,
+    node: Node<'a>,
     owner: &(String, String),
     key: Option<&str>,
+    chain: &mut Vec<Node<'a>>,
     out: &mut Vec<Line>,
 ) {
     for c in node.children() {
@@ -173,11 +238,20 @@ fn walk(
             Some(v @ (Value::Str(_) | Value::Raw(_))) => {
                 let written = v.as_string().unwrap_or_default().into_owned();
                 let line = c.name().into_owned();
-                let array = match key {
-                    Some(k) if line == "positions" => k.to_string(),
-                    Some(k) => format!("{k}.{line}"),
-                    None if NAMED_BY_LINE.contains(&line.as_str()) => line,
-                    None => c.handle().map_or(line, |h| h.text.to_string()),
+                let header = if line == KEYS && node.name() == "fcurve" {
+                    keys_header(owner, node, chain.last().copied())
+                } else {
+                    let array = match key {
+                        Some(k) if line == "positions" => k.to_string(),
+                        Some(k) => format!("{k}.{line}"),
+                        None if NAMED_BY_LINE.contains(&line.as_str()) => line,
+                        None => c.handle().map_or(line, |h| h.text.to_string()),
+                    };
+                    Header {
+                        kind: owner.0.clone(),
+                        handle: owner.1.clone(),
+                        array,
+                    }
                 };
                 out.push(Line {
                     from: file.path.clone(),
@@ -185,11 +259,7 @@ fn walk(
                     name: c.name_token().map_or(span(c.span()), |t| span(t.span)),
                     target: resolve(&file.path, &written),
                     written,
-                    header: Header {
-                        kind: owner.0.clone(),
-                        handle: owner.1.clone(),
-                        array,
-                    },
+                    header,
                 });
             }
             // Not a string: Null's checker says so.
@@ -200,7 +270,9 @@ fn walk(
                     ("shape-key", Some(h)) => Some(h.as_str()),
                     _ => key,
                 };
-                walk(file, c, owner, inner, out)
+                chain.push(node);
+                walk(file, c, owner, inner, chain, out);
+                chain.pop();
             }
         }
     }
@@ -233,9 +305,22 @@ fn in_drawings(file: &SourceFile, lines: &mut [Line]) {
     }
 }
 
-/// A data file's header and the span of its `array` node, if it reads.
+/// A data file's header and the span of its `array` node, if it reads; a key file's, of its
+/// `keys` node.
 fn header_of(text: &str) -> Option<(Header, Span)> {
     let parse = null_syntax::parse(text);
+    if let Some(node) = parse.document().nodes().find(|n| n.name() == KEYS) {
+        let words = line_words(node);
+        let (action, rest) = words.split_first()?;
+        return Some((
+            Header {
+                kind: KEYS.to_string(),
+                handle: action.clone(),
+                array: rest.join(" "),
+            },
+            span(node.code_span()),
+        ));
+    }
     let node = parse.document().nodes().find(|n| n.name() == ARRAY)?;
     let words: Vec<String> = node
         .args()
@@ -361,9 +446,9 @@ pub fn check(sources: &[SourceFile]) -> Checked {
                 pointed.push(d.clone());
             }
             let help = instead(format!(
-                "the path is from {}/; a data file there holds `{} [ … ]`, one element per line",
+                "the path is from {}/; a data file there holds `{}`, one element per line",
                 line.from.parent().unwrap_or(Path::new("")).display(),
-                line.header.show()
+                line.header.whole()
             ));
             checked.diagnostics.push(
                 at(
@@ -392,13 +477,13 @@ pub fn check(sources: &[SourceFile]) -> Checked {
                 at(
                     "cosmosis-data-file-not-data",
                     format!(
-                        "{} is not a data file: a data file holds one `array` node",
+                        "{} is not a data file: a data file holds one `array` node, a key file one `keys` node",
                         target.display()
                     ),
                 )
                 .with_help(format!(
-                    "write `{} [ … ]` in a file of its own, one element per line, and name that",
-                    line.header.show()
+                    "write `{}` in a file of its own, one element per line, and name that",
+                    line.header.whole()
                 )),
             );
             continue;
@@ -449,8 +534,8 @@ pub fn check(sources: &[SourceFile]) -> Checked {
                     "its `array` node",
                 )
                 .with_help(instead(format!(
-                    "the data file's first line names its owner and array: `{} [`",
-                    line.header.show()
+                    "the data file's first line names its owner and array: `{}`",
+                    line.header.open()
                 ))),
             );
         }
@@ -583,5 +668,65 @@ mod tests {
         // `//` in a string is no comment.
         assert!(layout_of("array mesh @rock @names [\"a//b\" \"c\"]\n").is_some());
         assert_eq!(layout_of("mesh @rock \"Rock\"\n"), None);
+    }
+
+    #[test]
+    fn a_key_file_is_named_and_checked_as_a_data_file() {
+        // Null section 11, S86 (task 1d-07t): an f-curve's `keys file=…` names its key file from
+        // the action's folder, matched by the action, the slot, the path and the index, in the
+        // short form and the full; a key file of another f-curve, and one no line names, are
+        // errors with the data files' codes.
+        let file = |path: &str, text: &str| SourceFile {
+            path: PathBuf::from(path),
+            text: text.to_string(),
+        };
+        let short = file(
+            "actions/flicker.noll",
+            "action @flicker \"F\" {\n  slot @lamp light \"Lamp\" {\n    fcurve energy {\n      keys file=\"flicker.lamp.energy.keys.noll\" count=1 frames=[1 1]\n    }\n  }\n}\n",
+        );
+        let layered = file(
+            "actions/hop.noll",
+            "action @hop \"Hop\" {\n  slot @ball object \"Ball\"\n  layer @base \"Base\" {\n    strip @keys keyframe {\n      channels @ball {\n        fcurve location index=2 {\n          keys file=\"hop.ball.location-2.keys.noll\" count=1 frames=[1 1]\n        }\n      }\n    }\n  }\n}\n",
+        );
+        let flicker_keys = file(
+            "actions/flicker.lamp.energy.keys.noll",
+            "keys @flicker @lamp energy {\n  key 1 800W\n}\n",
+        );
+        let hop_keys = file(
+            "actions/hop.ball.location-2.keys.noll",
+            "keys @hop @ball location index=2 {\n  key 1 0m\n}\n",
+        );
+        assert!(is_key_file(&hop_keys.text) && is_data_file(&hop_keys.text));
+        let found = check(&[
+            short.clone(),
+            layered.clone(),
+            flicker_keys.clone(),
+            hop_keys.clone(),
+        ]);
+        assert!(found.diagnostics.is_empty(), "{:#?}", found.diagnostics);
+        // The hop's file holding another index's keys, and a stray key file.
+        let wrong = file(
+            "actions/hop.ball.location-2.keys.noll",
+            "keys @hop @ball location index=1 {\n  key 1 0m\n}\n",
+        );
+        let stray = file(
+            "actions/stray.keys.noll",
+            "keys @hop @ball location index=0 {\n  key 1 0m\n}\n",
+        );
+        let found = check(&[short, layered, flicker_keys, wrong, stray]);
+        let codes: Vec<&str> = found.diagnostics.iter().map(|d| d.code).collect();
+        assert_eq!(
+            codes,
+            ["cosmosis-data-file-header", "cosmosis-data-file-unnamed"],
+            "{:#?}",
+            found.diagnostics
+        );
+        assert!(
+            found.diagnostics[0]
+                .message
+                .contains("holds `keys @hop @ball location index=1`, not `@ball location index=2` of keys @hop"),
+            "{}",
+            found.diagnostics[0].message
+        );
     }
 }
