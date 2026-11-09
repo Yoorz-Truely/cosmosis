@@ -7,6 +7,9 @@
 # is run by hand: tools/sau-crosscheck-test.sh <Null|Cosmosis>. The same file is in Null and
 # Cosmósis.
 set -euo pipefail
+# Run from a hook or a rebase, git's GIT_* variables would send the clones' commands to the real
+# repository: clear them all first (Sau task 0-33).
+while IFS= read -r v; do unset "$v"; done < <(compgen -e | grep '^GIT_' || true)
 name=${1:?usage: tools/sau-crosscheck-test.sh <Null|Cosmosis>}
 root=$(git rev-parse --show-toplevel)
 case $name in
