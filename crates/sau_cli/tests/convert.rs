@@ -152,3 +152,53 @@ fn the_folder_sau_writes_is_checked() {
     );
     let _ = fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_folder_converts_back_into_a_blend_through_sau() {
+    // The way back (task 1d-05e): a stand-in for Sau that writes the file `--convert` names
+    // after `--project <folder>`, as Sau saves the opened project.
+    let dir = folder("back");
+    let project = dir.join("Scene.sau");
+    fs::create_dir_all(&project).unwrap();
+    fs::write(
+        project.join("cosmosis.noll"),
+        "package \"scene\" {\n  null-format 1\n}\n",
+    )
+    .unwrap();
+    fs::write(project.join("project.noll"), "project \"Scene\" {}\n").unwrap();
+    let app = dir.join("fake-sau-back.sh");
+    fs::write(
+        &app,
+        "#!/bin/sh\n[ \"$1\" = -b ] && [ \"$2\" = --project ] && [ \"$4\" = --convert ] || exit 9\n\
+         [ -f \"$3/cosmosis.noll\" ] || exit 8\nprintf BLENDER >\"$5\"\n",
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&app, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let blend = dir.join("scene.blend");
+    let out = sau(
+        &[
+            "convert",
+            project.to_str().unwrap(),
+            blend.to_str().unwrap(),
+        ],
+        Some(&app),
+    );
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    assert_eq!(fs::read(&blend).unwrap(), b"BLENDER");
+    // A .blend already there is not written over.
+    let out = sau(
+        &[
+            "convert",
+            project.to_str().unwrap(),
+            blend.to_str().unwrap(),
+        ],
+        Some(&app),
+    );
+    assert_eq!(out.status.code(), Some(1));
+    assert!(text(&out.stderr).contains("exists; nothing was written over"));
+    let _ = fs::remove_dir_all(&dir);
+}

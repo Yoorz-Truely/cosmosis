@@ -611,6 +611,7 @@ fn rename(args: &[String]) -> ExitCode {
 }
 
 const CONVERT_HELP: &str = "Usage: sau convert <scene.blend> <Scene.sau>
+       sau convert <Scene.sau> <scene.blend>
 
 Converts a .blend file into a new project folder (task 1d-05d): Sau opens the file in the
 background and writes every datablock of the kinds it applies through RNA, one Null file per
@@ -621,6 +622,10 @@ workspaces, window managers, brushes) is left out (S61). Each image's, sound's, 
 cache's and volume's file, packed or not, goes into media/ by its SHA-256 (S83). What is not
 converted yet is said.
 The folder must not exist or must be empty. The folder is then checked as `sau check` checks.
+
+The other way, a project folder into a .blend file (task 1d-05e): Sau opens the project in the
+background (--project, which checks it and applies it to an empty file) and saves it there. The
+.blend must not exist yet.
 
 Sau is the app SAU_APP names (its executable, or a script that runs it).
 
@@ -646,6 +651,10 @@ fn convert(args: &[String]) -> ExitCode {
     let [blend, folder] = words.as_slice() else {
         return usage_error("`sau convert` takes a .blend file and a project folder");
     };
+    // The way back: a project folder into a .blend file (task 1d-05e).
+    if !blend.ends_with(".blend") && folder.ends_with(".blend") {
+        return convert_back(blend, folder);
+    }
     if !blend.ends_with(".blend") {
         return usage_error(&format!(
             "`{blend}` is not a .blend file; `sau convert` converts a .blend into a folder"
@@ -685,4 +694,50 @@ fn convert(args: &[String]) -> ExitCode {
         return ExitCode::FAILURE;
     }
     check(&[(*folder).to_string()])
+}
+
+/// `sau convert <Scene.sau> <scene.blend>` (task 1d-05e): Sau opens the project in the background
+/// (`--project`, which checks and applies it to an empty file) and saves it as the .blend file.
+fn convert_back(folder: &str, blend: &str) -> ExitCode {
+    let root = match layout::find_root(Path::new(folder)) {
+        Ok(root) => root,
+        Err(d) => {
+            report(&[*d]);
+            return ExitCode::FAILURE;
+        }
+    };
+    if Path::new(blend).exists() {
+        eprintln!("sau convert: {blend} exists; nothing was written over");
+        return ExitCode::FAILURE;
+    }
+    let Some(app) = std::env::var_os("SAU_APP") else {
+        eprintln!(
+            "sau convert: set SAU_APP to the Sau app (its executable), which does the converting"
+        );
+        return ExitCode::FAILURE;
+    };
+    let status = std::process::Command::new(&app)
+        .arg("-b")
+        .arg("--project")
+        .arg(&root)
+        .args(["--convert", blend])
+        .status();
+    match status {
+        Ok(s) if s.success() && Path::new(blend).is_file() => {
+            println!("sau convert: {} is {blend}", root.display());
+            ExitCode::SUCCESS
+        }
+        Ok(s) if s.success() => {
+            eprintln!("sau convert: Sau wrote no {blend}");
+            ExitCode::FAILURE
+        }
+        Ok(s) => {
+            eprintln!("sau convert: Sau stopped ({s}); `sau check` says what the project needs");
+            ExitCode::FAILURE
+        }
+        Err(e) => {
+            eprintln!("sau convert: cannot run {}: {e}", Path::new(&app).display());
+            ExitCode::FAILURE
+        }
+    }
 }
