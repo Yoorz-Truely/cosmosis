@@ -11,6 +11,8 @@ mod manifest;
 mod manifest_fields;
 #[path = "media.rs"]
 mod media;
+#[path = "migrate.rs"]
+mod migrate;
 #[path = "raw.rs"]
 mod raw;
 
@@ -20,6 +22,7 @@ const MODULES: &[&str] = &[
     "manifest.rs",
     "manifest_fields.rs",
     "media.rs",
+    "migrate.rs",
     "raw.rs",
 ];
 

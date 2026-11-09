@@ -163,7 +163,7 @@ const CASES: &[(&str, &str, Want)] = &[
         Codes(&["cosmosis-manifest-version"]),
     ),
     ("sau", "  sau \"0.1\"\n", Codes(&["cosmosis-manifest-type"])),
-    // null-format: required, a whole number from 1, no newer than this Cosmósis reads.
+    // null-format: required, a whole number from 1, no newer than this Sau reads.
     (
         "null-format",
         "package \"harbor\" {\n  null-format 1\n}\n",

@@ -18,7 +18,7 @@ use cosmosis::manifest::{MANIFEST_FILE, Manifest};
 use cosmosis::{schema_check, source};
 
 /// Every command in the spec: name, what it does, and whether it is built.
-const COMMANDS: [(&str, &str, bool); 16] = [
+const COMMANDS: [(&str, &str, bool); 17] = [
     ("new", "Start a project from a template", true),
     ("open", "Open a project in Sau", false),
     (
@@ -36,6 +36,11 @@ const COMMANDS: [(&str, &str, bool); 16] = [
     (
         "rename",
         "Rename a handle in every file that names it",
+        true,
+    ),
+    (
+        "migrate",
+        "Rewrite a project of an older Null format in this one",
         true,
     ),
     ("convert", "Convert a .blend to a project and back", true),
@@ -122,6 +127,7 @@ fn main() -> ExitCode {
         "fmt" => fmt(&args[1..]),
         "rename" => rename(&args[1..]),
         "convert" => convert(&args[1..]),
+        "migrate" => migrate(&args[1..]),
         name => match COMMANDS.iter().find(|c| c.0 == name) {
             Some(_) => {
                 eprintln!("sau: `{name}` is not built yet (Cosmósis spec, section 7)");
@@ -737,6 +743,112 @@ fn convert_back(folder: &str, blend: &str) -> ExitCode {
         }
         Err(e) => {
             eprintln!("sau convert: cannot run {}: {e}", Path::new(&app).display());
+            ExitCode::FAILURE
+        }
+    }
+}
+
+const MIGRATE_HELP: &str = "Usage: sau migrate [path]
+
+Rewrites the project holding <path> (default: the current folder), written in an older Null
+format, in the format this Sau reads, and writes that format into cosmosis.noll (Sau's decision
+S45). Null's migrations run one format at a time, each changing only what its format changed.
+
+It lifts one format at a time: each step's files are staged before any is replaced, and then
+cosmosis.noll is raised by one, so a stop part-way leaves that step's format named and
+`sau migrate` repeats that step alone, which leaves the files it rewrote as they are. Refused, with nothing written:
+a format newer than this Sau reads, a format no migration reads, and a file with syntax errors.
+The handle map (.sau/ids.noll) and view.noll keep their own forms and are not rewritten.
+
+Exit status: 0 when migrated or in this format already, 1 when refused, 2 on wrong usage.
+";
+
+/// `sau migrate [path]` (task 1d-04d).
+fn migrate(args: &[String]) -> ExitCode {
+    let mut path = None;
+    for arg in args {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print!("{MIGRATE_HELP}");
+                return ExitCode::SUCCESS;
+            }
+            flag if flag.starts_with('-') => {
+                return usage_error(&format!("`sau migrate` has no option `{flag}`"));
+            }
+            p if path.is_none() => path = Some(p),
+            p => return usage_error(&format!("`sau migrate` takes one path; `{p}` is a second")),
+        }
+    }
+    let root = match layout::find_root(Path::new(path.unwrap_or("."))) {
+        Ok(root) => root,
+        Err(d) => {
+            report(&[*d]);
+            return ExitCode::FAILURE;
+        }
+    };
+    let Ok(manifest) = std::fs::read_to_string(root.join(MANIFEST_FILE)) else {
+        report(&layout::check(&root, None).diagnostics);
+        return ExitCode::FAILURE;
+    };
+    let newest = cosmosis::manifest::NEWEST_NULL_FORMAT;
+    let older = cosmosis::migrate::format_of(&manifest).is_some_and(|(n, _)| n < newest);
+    if !older {
+        // In this format already, or a format the manifest refuses (newer, or not a number).
+        return match Manifest::parse(&manifest) {
+            Ok(m) => {
+                println!(
+                    "sau migrate: package \"{}\" is in Null format {}, the one this Sau reads; nothing to migrate",
+                    m.name, m.null_format
+                );
+                ExitCode::SUCCESS
+            }
+            Err(found) => {
+                report(&found);
+                ExitCode::FAILURE
+            }
+        };
+    }
+    let found = layout::check(&root, None);
+    let errors: Vec<Diagnostic> = found
+        .diagnostics
+        .iter()
+        .filter(|d| d.is_error())
+        .cloned()
+        .collect();
+    if !errors.is_empty() {
+        report(&errors);
+        eprintln!(
+            "sau migrate: fix these first (`sau check`), so that every file is migrated; nothing was changed"
+        );
+        return ExitCode::FAILURE;
+    }
+    match cosmosis::migrate::run(&root, null_check::migrate::MIGRATIONS, newest) {
+        Ok(done) => {
+            for d in &done {
+                println!(
+                    "sau migrate: Null format {} to {} ({}): {} file{} rewritten",
+                    d.from,
+                    d.from + 1,
+                    d.what,
+                    d.written.len(),
+                    if d.written.len() == 1 { "" } else { "s" }
+                );
+                for f in &d.written {
+                    println!("  {}", f.display());
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        Err(cosmosis::migrate::RunError::Refused(found)) => {
+            report(&found);
+            eprintln!("sau migrate: nothing was changed");
+            ExitCode::FAILURE
+        }
+        Err(cosmosis::migrate::RunError::Io { done, error }) => {
+            let at = done.last().map_or_else(String::new, |d| {
+                format!(" (it is in Null format {} now)", d.from + 1)
+            });
+            eprintln!("sau migrate: {error}{at}; run `sau migrate` again to finish");
             ExitCode::FAILURE
         }
     }

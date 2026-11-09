@@ -15,6 +15,8 @@ mod data_files;
 mod fmt;
 #[path = "layout_rules.rs"]
 mod layout_rules;
+#[path = "migrate.rs"]
+mod migrate;
 #[path = "new.rs"]
 mod new;
 #[path = "project_corpus.rs"]
@@ -34,6 +36,7 @@ const MODULES: &[&str] = &[
     "data_files.rs",
     "fmt.rs",
     "layout_rules.rs",
+    "migrate.rs",
     "new.rs",
     "project_corpus.rs",
     "project_schema.rs",
