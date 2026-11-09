@@ -1,0 +1,7 @@
+// Level 0 data beyond meshes (RFC 0006, Sau's decision S91, task 1d-06f): a point cloud, a
+// curves datablock and a Grease Pencil datablock, each written as its arrays; one drawing's
+// arrays in data files of their own.
+project "Geometry" {
+  units metric scale=1 length=m rotation=deg
+  scene @main
+}

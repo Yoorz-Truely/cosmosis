@@ -1,0 +1,25 @@
+// A Grease Pencil datablock: two drawings, the first's arrays in data files; a layer showing
+// them by turns, one frame a breakdown; and a group holding a second layer.
+grease-pencil @sketch "Sketch" {
+  drawing @first {
+    points file="sketch.first.points.noll" count=3 bounds=[[0m 0m 0m] [0.5m 0m 0.5m]]
+    curves [3]
+    attribute @radius point float "radius" file="sketch.first.radius.noll" count=3 bounds=[0.01 0.02]
+  }
+  drawing @second {
+    points [[0m 0m 0m] [0.5m 0m 0.25m]]
+    curves [2]
+  }
+  layer @lines "Lines" {
+    frame 1 @first
+    frame 12 @second keyframe-type=breakdown
+    frame 24 @first
+    opacity 0.8
+  }
+  layer-group @effects "Effects" {
+    layer @glow "Glow" {
+      frame 1 @first
+      use-lights on
+    }
+  }
+}

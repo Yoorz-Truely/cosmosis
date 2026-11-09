@@ -1,0 +1,9 @@
+// A pose bone animated: the rig's spine nods through its slot (Null section 11; Sau task 1d-07r).
+action @nod "Nod" {
+  slot @rig object "Rig" {
+    fcurve @spine rotation-euler index=0 {
+      key 1 0
+      key 12 0.25
+    }
+  }
+}
