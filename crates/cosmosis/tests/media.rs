@@ -208,6 +208,13 @@ fn each_mistake_of_a_set_has_its_own_code() {
     fs::write(wrong.join("999.png"), "z").unwrap();
     fs::write(wrong.join("1002.jpg"), "j").unwrap();
     fs::write(wrong.join("notes.txt"), "n").unwrap();
+    // A tile named with a leading zero, which Blender's `<UDIM>` never reads (1d-05m's review).
+    let (zeroed, _) = set_path(SetKind::Tiles, &[(1001, b"a")], "png", 4);
+    let zeroed = root
+        .join(&zeroed)
+        .with_file_name(format!("{}.tiles", "1".repeat(64)));
+    fs::create_dir_all(&zeroed).unwrap();
+    fs::write(zeroed.join("01001.png"), "a").unwrap();
     let codes: Vec<String> = layout::check(&root, None)
         .diagnostics
         .iter()
@@ -229,6 +236,16 @@ fn each_mistake_of_a_set_has_its_own_code() {
             .filter(|c| *c == "cosmosis-media-set-token")
             .count(),
         2,
+        "{codes:?}"
+    );
+    let named_in = |folder: &str| {
+        layout::check(&root, None)
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "cosmosis-media-set-name" && d.to_string().contains(folder))
+    };
+    assert!(
+        named_in(&format!("{}.tiles/01001.png", "1".repeat(64))),
         "{codes:?}"
     );
     // A folder otherwise well made but named by another listing.

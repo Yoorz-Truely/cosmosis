@@ -466,7 +466,10 @@ fn set_folder(
                     && !e.is_empty()
                     && e.bytes().all(|b| b.is_ascii_alphanumeric())
             })
-            .filter(|_| path.is_file());
+            .filter(|_| path.is_file())
+            // A tile's name is exactly its UDIM number, as Blender's `<UDIM>` makes it: never
+            // `01001.png` (1d-05m's review).
+            .filter(|(n, _)| kind != SetKind::Tiles || !n.starts_with('0'));
         let Some((number, ext)) = parts else {
             named = false;
             layout.diagnostics.push(
@@ -482,7 +485,7 @@ fn set_folder(
                     ),
                 )
                 .in_file(&rel_path)
-                .with_help("name each file by its tile or frame number and its extension, such as `1001.png`"),
+                .with_help("name each file by its tile or frame number and its extension, such as `1001.png`, a tile's number with no leading zero"),
             );
             continue;
         };
