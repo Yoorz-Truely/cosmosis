@@ -5,6 +5,7 @@ object @lamp "Lamp" {
 
 object @ball "Ball" {
   data mesh @ball-mesh
+  modifier @bevel bevel "Bevel" { width 4mm }
   track @moves "Moves" {
     strip @hop-twice "Hop" {
       blend-type add
