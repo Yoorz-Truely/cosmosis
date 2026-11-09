@@ -1,0 +1,8 @@
+// Hair curves: two curves of two and three points, a radius per point and a cyclic flag per
+// curve.
+curves @fur "Fur" {
+  points [[0m 0m 0m] [0m 0m 0.1m] [0.1m 0m 0m] [0.1m 0m 0.1m] [0.1m 0m 0.2m]]
+  curves [2 3]
+  attribute @radius point float "radius" [0.002 0.001 0.002 0.0015 0.001]
+  attribute @cyclic curve boolean "cyclic" [off on]
+}
