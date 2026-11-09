@@ -107,12 +107,16 @@ pub fn check_with(schema: &Schema, sources: &[SourceFile]) -> Vec<Diagnostic> {
     // matching by header.
     let data = crate::data_files::check(sources);
     let replaced = |d: &null_syntax::Diagnostic| {
-        d.code == null_check::codes::HANDLE
-            && data.replaced.iter().any(|(path, span)| {
-                *path == files[d.primary.file.0 as usize].path
-                    && span.start == d.primary.span.start
-                    && span.end == d.primary.span.end
-            })
+        matches!(
+            d.code,
+            null_check::codes::HANDLE
+                | null_check::codes::KEY_FILE_MISSING
+                | null_check::codes::KEY_FILE_UNNAMED
+        ) && data.replaced.iter().any(|(path, span)| {
+            *path == files[d.primary.file.0 as usize].path
+                && span.start == d.primary.span.start
+                && span.end == d.primary.span.end
+        })
     };
     let mut out: Vec<Diagnostic> = null_check::check(schema, &ids)
         .into_iter()
