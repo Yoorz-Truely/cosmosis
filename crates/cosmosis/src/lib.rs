@@ -6,6 +6,7 @@
 //! What each file means beyond its syntax is Null's checker's (Sau task 1a-06).
 
 pub mod blender_project;
+pub mod body;
 pub mod data_files;
 pub mod diagnostic;
 pub mod ids;
