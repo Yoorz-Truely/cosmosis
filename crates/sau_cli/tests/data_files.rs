@@ -97,6 +97,49 @@ fn the_corpus_rock_checks_clean_with_its_data_files_counted() {
 }
 
 #[test]
+fn a_drawings_arrays_in_data_files_are_named_by_its_handle() {
+    // RFC 0006 (S91, task 1d-06f): in a Grease Pencil drawing's block, `points file=…` names a
+    // data file whose header is the drawing's handle and the line's name (`@first.points`), and
+    // an attribute's is the drawing's handle, `/` and the attribute's (`@first/@radius`), as
+    // Null's checker matches them. The corpus's sketch holds both.
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/project/geometry.sau");
+    let (found, err) = errors(&root);
+    assert!(found.is_empty(), "{err}");
+    // A header naming the array as a datablock's own is the error at the line.
+    let points = "grease-pencils/sketch.first.points.noll";
+    let geometry = |files: &[(&str, &str)]| {
+        static N: AtomicUsize = AtomicUsize::new(0);
+        let to = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+            "data-files-geometry-{}-{}",
+            std::process::id(),
+            N.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = fs::remove_dir_all(&to);
+        copy(&root, &to);
+        for (p, t) in files {
+            fs::write(to.join(p), t).unwrap();
+        }
+        to
+    };
+    let data = fs::read_to_string(root.join(points)).unwrap();
+    let wrong = geometry(&[(points, &data.replace("@first.points [", "points ["))]);
+    let (found, err) = errors(&wrong);
+    assert!(
+        found.iter().any(|(c, _)| c == "cosmosis-data-file-header"),
+        "{err}"
+    );
+    // An attribute's header naming it as the datablock's own attribute: the same.
+    let radius = "grease-pencils/sketch.first.radius.noll";
+    let data = fs::read_to_string(root.join(radius)).unwrap();
+    let wrong = geometry(&[(radius, &data.replace("@first/@radius [", "@radius ["))]);
+    let (found, err) = errors(&wrong);
+    assert!(
+        found.iter().any(|(c, _)| c == "cosmosis-data-file-header"),
+        "{err}"
+    );
+}
+
+#[test]
 fn a_data_file_may_be_in_another_folder() {
     let root = rock(
         &[
@@ -397,47 +440,4 @@ fn a_data_file_in_a_content_folder_is_in_the_wrong_place() {
         "{err}"
     );
     assert!(err.contains("meshes/rock.heat.noll holds it"), "{err}");
-}
-
-#[test]
-fn a_drawings_arrays_in_data_files_are_named_by_its_handle() {
-    // RFC 0006 (S91, task 1d-06f): in a Grease Pencil drawing's block, `points file=…` names a
-    // data file whose header is the drawing's handle and the line's name (`@first.points`), and
-    // an attribute's is the drawing's handle, `/` and the attribute's (`@first/@radius`), as
-    // Null's checker matches them. The corpus's sketch holds both.
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/project/geometry.sau");
-    let (found, err) = errors(&root);
-    assert!(found.is_empty(), "{err}");
-    // A header naming the array as a datablock's own is the error at the line.
-    let points = "grease-pencils/sketch.first.points.noll";
-    let geometry = |files: &[(&str, &str)]| {
-        static N: AtomicUsize = AtomicUsize::new(0);
-        let to = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
-            "data-files-geometry-{}-{}",
-            std::process::id(),
-            N.fetch_add(1, Ordering::Relaxed)
-        ));
-        let _ = fs::remove_dir_all(&to);
-        copy(&root, &to);
-        for (p, t) in files {
-            fs::write(to.join(p), t).unwrap();
-        }
-        to
-    };
-    let data = fs::read_to_string(root.join(points)).unwrap();
-    let wrong = geometry(&[(points, &data.replace("@first.points [", "points ["))]);
-    let (found, err) = errors(&wrong);
-    assert!(
-        found.iter().any(|(c, _)| c == "cosmosis-data-file-header"),
-        "{err}"
-    );
-    // An attribute's header naming it as the datablock's own attribute: the same.
-    let radius = "grease-pencils/sketch.first.radius.noll";
-    let data = fs::read_to_string(root.join(radius)).unwrap();
-    let wrong = geometry(&[(radius, &data.replace("@first/@radius [", "@radius ["))]);
-    let (found, err) = errors(&wrong);
-    assert!(
-        found.iter().any(|(c, _)| c == "cosmosis-data-file-header"),
-        "{err}"
-    );
 }
