@@ -33,7 +33,19 @@ object @rig "Rig" {
   }
 }
 
-armature @rig-bones "Rig"
+armature @rig-bones "Rig" {
+  bone @spine "Spine" {
+    head [0m 0m 0m]
+    tail [0m 0m 1m]
+  }
+  bone @neck "Neck" {
+    parent @spine
+    use-connect
+    head [0m 0m 1m]
+    tail [0m 0.1m 1.3m]
+    roll 5deg
+  }
+}
 
 object @view "View" {
   data camera @view-lens
