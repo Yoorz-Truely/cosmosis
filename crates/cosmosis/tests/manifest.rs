@@ -263,7 +263,7 @@ fn null_format_is_a_whole_number_from_one() {
             e(
                 "cosmosis-manifest-null-format",
                 &format!("`null-format {bad}` is not a format number"),
-                "formats are whole numbers from 1; this Cosmósis reads up to format 1"
+                "formats are whole numbers from 1; this Sau reads format 1"
             ),
             "{bad}"
         );
@@ -282,7 +282,7 @@ fn a_newer_null_format_cannot_be_read() {
             e(
                 "cosmosis-manifest-newer-format",
                 &format!(
-                    "the project is written in Null format {newer}, newer than this Cosmósis reads (format 1)"
+                    "the project is written in Null format {newer}, newer than this Sau reads (format 1)"
                 ),
                 "open it with a newer Sau: older formats are migrated, newer ones cannot be"
             ),

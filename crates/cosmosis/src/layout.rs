@@ -188,6 +188,9 @@ pub fn check(root: &Path, kind: Option<Kind>) -> Layout {
         );
     }
     walk(root, Path::new(""), &mut layout);
+    // Each media datablock's `filepath` (Null section 12, S83, task 1d-05f).
+    let media = crate::media::check(root, &layout.sources);
+    layout.diagnostics.extend(media);
     // A file in `media/` or `data/` that a line names as its data file has the place error
     // (`cosmosis-data-file-place`, task C-10), not also one saying to rename it by its hash.
     let misplaced = crate::data_files::check(&layout.sources).misplaced;
