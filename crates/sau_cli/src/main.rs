@@ -273,6 +273,11 @@ fn fmt(args: &[String]) -> ExitCode {
         // Datablock files in the schema's order; the others, whose forms are their own, in the
         // formatter's layout alone (S66).
         let text = if layout::holds_datablocks(&file.path)
+            && cosmosis::data_files::is_key_file(&file.text)
+        {
+            // A key file (Null section 11, S86): the formatter's layout, one key per line.
+            null_print::format(&file.text)
+        } else if layout::holds_datablocks(&file.path)
             && cosmosis::data_files::is_data_file(&file.text)
         {
             // A data file: one element per line (task C-10, Null spec section 9), or as it is
